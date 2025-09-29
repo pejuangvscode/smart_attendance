@@ -1,6 +1,7 @@
 package com.example.smartattendance.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,7 +28,10 @@ import com.example.smartattendance.ui.theme.SmartAttendanceTheme
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onLogout: () -> Unit = {}
+    onLogout: () -> Unit = {},
+    onSubmitAttendance: () -> Unit = {},
+    onDateClick: () -> Unit = {},
+    onRequestPermission: () -> Unit = {}
 ) {
     val darkGray = Color(0xFF3A3A3A)
     val redColor = Color(0xFFE57373)
@@ -58,42 +62,27 @@ fun HomeScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(25.dp, 50.dp, 25.dp, 0.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Profile",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                Text(
+                    text = "Hello, Teo!",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+//                    modifier = Modifier.padding(16.dp)
+                )
 
                 IconButton(onClick = onLogout) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ExitToApp,
                         contentDescription = "Logout",
                         tint = Color.White,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(40.dp)
                     )
                 }
             }
-
-            Text(
-                text = "Hello, Teo!",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
 
             Spacer(modifier = Modifier.height(32.dp))
 
@@ -130,7 +119,7 @@ fun HomeScreen(
                     }
 
                     Button(
-                        onClick = { /* Handle attendance */ },
+                        onClick = onSubmitAttendance,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = redColor
                         ),
@@ -151,7 +140,8 @@ fun HomeScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 25.dp),
+                    .padding(horizontal = 25.dp)
+                    .clickable { onDateClick() },
                 shape = RoundedCornerShape(10.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
@@ -234,7 +224,8 @@ fun HomeScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 25.dp),
+                    .padding(horizontal = 25.dp)
+                    .clickable { onRequestPermission() },
                 shape = RoundedCornerShape(10.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
@@ -260,25 +251,7 @@ fun HomeScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
-
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color.White,
-                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-                shadowElevation = 8.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    BottomNavItem(Icons.Default.Home, "Home", true)
-                    BottomNavItem(Icons.AutoMirrored.Filled.List, "List", false)
-                    BottomNavItem(Icons.Outlined.Schedule, "Schedule", false)
-                }
-            }
+            Spacer(modifier = Modifier.height(20.dp))
         }
     }
 }
@@ -329,20 +302,6 @@ fun StatItem(
             modifier = Modifier.padding(top = 2.dp)
         )
     }
-}
-
-@Composable
-fun BottomNavItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    isSelected: Boolean
-) {
-    Icon(
-        imageVector = icon,
-        contentDescription = label,
-        tint = if (isSelected) Color.Black else Color.Gray,
-        modifier = Modifier.size(28.dp)
-    )
 }
 
 @Preview(showBackground = true)
