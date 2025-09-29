@@ -35,7 +35,6 @@ fun HomeScreen(
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Background with half dark gray and half white
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
@@ -45,7 +44,6 @@ fun HomeScreen(
                     .weight(0.3f)
                     .background(darkGray)
             )
-            // White bottom half
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -54,11 +52,9 @@ fun HomeScreen(
             )
         }
 
-        // Content overlay
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Top Bar with Profile and Logout
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -66,7 +62,6 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Profile avatar
                 Box(
                     modifier = Modifier
                         .size(32.dp)
@@ -82,7 +77,6 @@ fun HomeScreen(
                     )
                 }
 
-                // Logout button
                 IconButton(onClick = onLogout) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ExitToApp,
@@ -93,7 +87,6 @@ fun HomeScreen(
                 }
             }
 
-            // Hello greeting
             Text(
                 text = "Hello, Teo!",
                 fontSize = 28.sp,
@@ -104,7 +97,6 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Take attendance card with shadow
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -156,7 +148,6 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Date and week status card with shadow
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -168,7 +159,6 @@ fun HomeScreen(
                 Column(
                     modifier = Modifier.padding(20.dp)
                 ) {
-                    // Date section
                     Row(
                         verticalAlignment = Alignment.Bottom
                     ) {
@@ -196,7 +186,6 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // This week status
                     Text(
                         text = "This week status",
                         fontSize = 14.sp,
@@ -204,7 +193,6 @@ fun HomeScreen(
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
 
-                    // Week days with status
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly
@@ -220,7 +208,6 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Statistics card with shadow
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -244,7 +231,6 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Request Permission card with shadow
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -276,7 +262,6 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Bottom Navigation with shadow
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = Color.White,

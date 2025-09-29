@@ -44,10 +44,8 @@ fun AppNavigation() {
         composable("login") {
             LoginScreen(
                 onLoginClick = { username, password ->
-                    // Simple validation - in real app, validate with backend
                     if (username.isNotEmpty() && password.isNotEmpty()) {
                         navController.navigate("home") {
-                            // Clear back stack so user can't go back to login
                             popUpTo("login") { inclusive = true }
                         }
                     }
@@ -59,7 +57,6 @@ fun AppNavigation() {
             HomeScreen(
                 onLogout = {
                     navController.navigate("login") {
-                        // Clear back stack completely
                         popUpTo(0)
                     }
                 }

@@ -33,7 +33,6 @@ fun LoginScreen(
     var loginError by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
 
-    // Predefined credentials
     val validUsername = "admin"
     val validPassword = "password123"
 
@@ -41,9 +40,8 @@ fun LoginScreen(
         isLoading = true
         loginError = ""
 
-        // Simulate loading delay
         CoroutineScope(Dispatchers.Main).launch {
-            delay(1000) // 1 second delay
+            delay(1000)
 
             when {
                 username.isEmpty() -> {
@@ -73,10 +71,8 @@ fun LoginScreen(
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Top status bar space
-        Spacer(modifier = Modifier.height(60.dp))
 
-        // Profile avatar placeholder
+        Spacer(modifier = Modifier.height(60.dp))
         Box(
             modifier = Modifier
                 .size(100.dp)
@@ -92,7 +88,6 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(40.dp))
 
-        // Login title
         Text(
             text = "Login",
             fontSize = 28.sp,
@@ -102,42 +97,8 @@ fun LoginScreen(
             textAlign = TextAlign.Start
         )
 
-//        // Credentials info card
-//        Card(
-//            modifier = Modifier
-//                .fillMaxWidth()
-//                .padding(vertical = 16.dp),
-//            colors = CardDefaults.cardColors(
-//                containerColor = Color(0xFFE3F2FD)
-//            ),
-//            shape = RoundedCornerShape(8.dp)
-//        ) {
-//            Column(
-//                modifier = Modifier.padding(12.dp)
-//            ) {
-//                Text(
-//                    text = "Kredensial Login:",
-//                    fontSize = 14.sp,
-//                    fontWeight = FontWeight.Bold,
-//                    color = Color(0xFF1976D2)
-//                )
-//                Spacer(modifier = Modifier.height(4.dp))
-//                Text(
-//                    text = "Username: admin",
-//                    fontSize = 12.sp,
-//                    color = Color(0xFF1976D2)
-//                )
-//                Text(
-//                    text = "Password: password123",
-//                    fontSize = 12.sp,
-//                    color = Color(0xFF1976D2)
-//                )
-//            }
-//        }
-
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Error message
         if (loginError.isNotEmpty()) {
             Card(
                 modifier = Modifier
@@ -157,7 +118,6 @@ fun LoginScreen(
             }
         }
 
-        // Username field
         Text(
             text = "Username",
             fontSize = 16.sp,
@@ -172,7 +132,7 @@ fun LoginScreen(
             value = username,
             onValueChange = {
                 username = it
-                loginError = "" // Clear error when user types
+                loginError = ""
             },
             placeholder = {
                 Text(
@@ -196,7 +156,6 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Password field
         Text(
             text = "Password",
             fontSize = 16.sp,
@@ -211,7 +170,7 @@ fun LoginScreen(
             value = password,
             onValueChange = {
                 password = it
-                loginError = "" // Clear error when user types
+                loginError = ""
             },
             placeholder = {
                 Text(
@@ -248,7 +207,6 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Forgot Password link
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End
@@ -267,7 +225,6 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Login button
         Button(
             onClick = { validateLogin() },
             modifier = Modifier
