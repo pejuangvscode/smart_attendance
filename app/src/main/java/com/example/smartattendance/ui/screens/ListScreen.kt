@@ -109,7 +109,6 @@ fun ListScreen(
                 }
             }
 
-            // Today's records
             items(attendanceRecords.take(4)) { record ->
                 ListAttendanceRecordItem(record = record)
             }
