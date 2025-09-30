@@ -40,7 +40,6 @@ fun ListScreen(
 ) {
     val darkGray = Color(0xFF3A3A3A)
 
-    // Sample data
     val attendanceRecords = listOf(
         ListAttendanceRecord("KECERDASAN KOMPUTASIONAL", "Laboratory Request Permission", ListAttendanceStatus.PENDING),
         ListAttendanceRecord("KECERDASAN KOMPUTASIONAL", "Request Permission", ListAttendanceStatus.PENDING),
