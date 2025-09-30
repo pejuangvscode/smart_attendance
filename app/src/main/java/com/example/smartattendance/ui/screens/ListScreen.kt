@@ -90,7 +90,6 @@ fun ListScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                // Today section header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
