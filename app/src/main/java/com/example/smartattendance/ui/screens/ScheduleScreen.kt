@@ -237,7 +237,6 @@ private fun ScheduleItem(
     }
 }
 
-// Sample data for today's schedule
 private data class ScheduleItem(
     val title: String,
     val time: String
