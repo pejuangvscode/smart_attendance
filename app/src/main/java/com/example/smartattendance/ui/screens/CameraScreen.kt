@@ -195,7 +195,6 @@ fun CameraScreen(
                     FloatingActionButton(
                         onClick = {
                             onPhotoTaken(capturedImage)
-                            onBackClick()
                         },
                         containerColor = Color(0xFF4CAF50),
                         modifier = Modifier.size(60.dp)
