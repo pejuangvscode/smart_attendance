@@ -181,7 +181,6 @@ fun AttendanceDetailScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Photo Evidence
             if (attendanceReport.photo != null) {
                 Text(
                     text = "Photo Evidence",
