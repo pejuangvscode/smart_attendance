@@ -239,6 +239,8 @@ fun CameraPreview(
         // Camera preview
         Box(
             modifier = Modifier
+
+
                 .fillMaxWidth()
                 .weight(1f)
         ) {

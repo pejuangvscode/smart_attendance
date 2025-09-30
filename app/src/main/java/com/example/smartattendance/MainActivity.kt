@@ -21,6 +21,8 @@ import com.example.smartattendance.ui.screens.HistoryScreen
 import com.example.smartattendance.ui.screens.RequestPermissionScreen
 import com.example.smartattendance.ui.screens.CreatePermissionRequestScreen
 import com.example.smartattendance.ui.screens.CameraScreen
+import com.example.smartattendance.ui.screens.ScheduleScreen
+import com.example.smartattendance.ui.screens.ListScreen
 import com.example.smartattendance.ui.components.AppBottomNavigation
 import com.example.smartattendance.ui.theme.SmartAttendanceTheme
 
@@ -151,23 +153,55 @@ fun AppNavigation() {
                 )
             }
 
-            // Placeholder screens for navigation
+            // List screen for center navigation
             composable("list") {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = Color.White
-                ) {
-                    // TODO: Create List screen
-                }
+                ListScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    onNavigate = { route ->
+                        when (route) {
+                            "home" -> {
+                                navController.navigate("home") {
+                                    popUpTo("home") { inclusive = true }
+                                    launchSingleTop = true
+                                }
+                            }
+                            else -> {
+                                navController.navigate(route) {
+                                    popUpTo("home") { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                        }
+                    }
+                )
             }
 
             composable("schedule") {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = Color.White
-                ) {
-                    // TODO: Create Schedule screen
-                }
+                ScheduleScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    onNavigate = { route ->
+                        when (route) {
+                            "home" -> {
+                                navController.navigate("home") {
+                                    popUpTo("home") { inclusive = true }
+                                    launchSingleTop = true
+                                }
+                            }
+                            else -> {
+                                navController.navigate(route) {
+                                    popUpTo("home") { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                        }
+                    }
+                )
             }
 
             composable("request_permission") {
