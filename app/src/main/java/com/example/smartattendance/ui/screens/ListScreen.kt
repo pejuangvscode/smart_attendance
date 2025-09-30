@@ -82,7 +82,6 @@ fun ListScreen(
             }
         }
 
-        // Content
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
