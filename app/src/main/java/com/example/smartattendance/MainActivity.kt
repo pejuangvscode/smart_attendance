@@ -1,5 +1,6 @@
 package com.example.smartattendance
 
+import android.graphics.Bitmap
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -23,6 +24,7 @@ import com.example.smartattendance.ui.screens.CreatePermissionRequestScreen
 import com.example.smartattendance.ui.screens.CameraScreen
 import com.example.smartattendance.ui.screens.ScheduleScreen
 import com.example.smartattendance.ui.screens.ListScreen
+import com.example.smartattendance.ui.screens.SubmitAttendanceScreen
 import com.example.smartattendance.ui.components.AppBottomNavigation
 import com.example.smartattendance.ui.theme.SmartAttendanceTheme
 
@@ -50,6 +52,10 @@ fun AppNavigation() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: "login"
 
+    // State for captured photo
+    var capturedPhoto by remember { mutableStateOf<Bitmap?>(null) }
+    var isLateAttendance by remember { mutableStateOf(false) }
+
     // Routes where bottom navigation should be shown
     val routesWithBottomNav = setOf("home", "attendance", "history", "list", "schedule", "request_permission", "create_permission_request")
 
@@ -61,7 +67,6 @@ fun AppNavigation() {
                     onNavigate = { route ->
                         when (route) {
                             "home" -> {
-                                // When navigating to home, clear back stack
                                 navController.navigate("home") {
                                     popUpTo("home") { inclusive = true }
                                     launchSingleTop = true
@@ -69,11 +74,8 @@ fun AppNavigation() {
                             }
                             else -> {
                                 navController.navigate(route) {
-                                    // Pop up to the graph's start destination
                                     popUpTo("home") { saveState = true }
-                                    // Avoid multiple copies of the same destination
                                     launchSingleTop = true
-                                    // Restore state when reselecting a previously selected item
                                     restoreState = true
                                 }
                             }
@@ -108,7 +110,7 @@ fun AppNavigation() {
                         }
                     },
                     onSubmitAttendance = {
-                        navController.navigate("attendance")
+                        navController.navigate("submit_attendance")
                     },
                     onDateClick = {
                         navController.navigate("history")
@@ -139,8 +141,32 @@ fun AppNavigation() {
                         navController.popBackStack()
                     },
                     onPhotoTaken = { bitmap ->
-                        // Photo captured successfully, navigate back to attendance
+                        capturedPhoto = bitmap
+                        // For now, we'll set isLateAttendance based on current time
+                        // This can be enhanced later with proper time checking logic
+                        isLateAttendance = false // You can add time checking logic here
+                        navController.navigate("submit_attendance")
+                    }
+                )
+            }
+
+            composable("submit_attendance") {
+                SubmitAttendanceScreen(
+                    onBackClick = {
                         navController.popBackStack()
+                    },
+                    onTakePhotoClick = {
+                        navController.navigate("camera")
+                    },
+                    capturedPhoto = capturedPhoto,
+                    isLateAttendance = isLateAttendance,
+                    onSubmitSuccess = {
+                        capturedPhoto = null
+                        isLateAttendance = false
+                        navController.navigate("home") {
+                            popUpTo("home") { inclusive = true }
+                            launchSingleTop = true
+                        }
                     }
                 )
             }

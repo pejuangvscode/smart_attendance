@@ -20,19 +20,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.smartattendance.data.AttendanceRecord
+import com.example.smartattendance.data.AttendanceStatus
 import com.example.smartattendance.ui.theme.SmartAttendanceTheme
-
-data class AttendanceRecord(
-    val subject: String,
-    val type: String,
-    val status: AttendanceStatus,
-    val time: String? = null,
-    val date: String? = null
-)
-
-enum class AttendanceStatus {
-    PENDING, NOT_YET, PRESENT
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,14 +31,14 @@ fun HistoryScreen(
 ) {
     val darkGray = Color(0xFF3A3A3A)
 
-    // Sample data
+    // Sample data - AttendanceRecord(className, subject, type, status, time, date)
     val attendanceRecords = listOf(
-        AttendanceRecord("KECERDASAN KOMPUTASIONAL", "Laboratory Request Permission", AttendanceStatus.PENDING),
-        AttendanceRecord("KECERDASAN KOMPUTASIONAL", "Request Permission", AttendanceStatus.PENDING),
-        AttendanceRecord("KEAMANAN KOMPUTER & JARINGAN", "Laboratory", AttendanceStatus.NOT_YET, "10:00AM - 11:40AM"),
-        AttendanceRecord("KEAMANAN KOMPUTER & JARINGAN", "", AttendanceStatus.NOT_YET, "7:15AM - 9:45AM"),
-        AttendanceRecord("PERANCANGAN & PEMROGRAMAN WEB", "Laboratory", AttendanceStatus.PRESENT, "10:00AM - 11:40AM", "Thursday, 25 Sep 2025"),
-        AttendanceRecord("PERANCANGAN & PEMROGRAMAN WEB", "", AttendanceStatus.PRESENT, "", "Thursday, 25 Sep 2025")
+        AttendanceRecord("KECERDASAN KOMPUTASIONAL", "AI Lab", "Laboratory Request Permission", AttendanceStatus.PENDING),
+        AttendanceRecord("KECERDASAN KOMPUTASIONAL", "AI Theory", "Request Permission", AttendanceStatus.PENDING),
+        AttendanceRecord("KEAMANAN KOMPUTER & JARINGAN", "Security Lab", "Laboratory", AttendanceStatus.NOT_YET, "10:00AM - 11:40AM"),
+        AttendanceRecord("KEAMANAN KOMPUTER & JARINGAN", "Security Theory", "", AttendanceStatus.NOT_YET, "7:15AM - 9:45AM"),
+        AttendanceRecord("PERANCANGAN & PEMROGRAMAN WEB", "Web Dev Lab", "Laboratory", AttendanceStatus.PRESENT, "10:00AM - 11:40AM", "Thursday, 25 Sep 2025"),
+        AttendanceRecord("PERANCANGAN & PEMROGRAMAN WEB", "Web Dev Theory", "", AttendanceStatus.PRESENT, "", "Thursday, 25 Sep 2025")
     )
 
     Column(
@@ -153,7 +143,7 @@ fun AttendanceRecordItem(
                 .padding(16.dp)
         ) {
             Text(
-                text = record.subject,
+                text = record.className,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black
@@ -175,7 +165,7 @@ fun AttendanceRecordItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (record.time?.isNotEmpty() == true) {
+                if (record.time.isNotEmpty()) {
                     Text(
                         text = record.time,
                         fontSize = 12.sp,
@@ -199,6 +189,8 @@ fun StatusIndicator(
         AttendanceStatus.PENDING -> Pair(Color(0xFFFFA726), "Pending")
         AttendanceStatus.NOT_YET -> Pair(Color.Gray, "Not Yet")
         AttendanceStatus.PRESENT -> Pair(Color(0xFF66BB6A), "Present")
+        AttendanceStatus.APPROVED -> Pair(Color(0xFF66BB6A), "Approved")
+        AttendanceStatus.REJECTED -> Pair(Color(0xFFEF5350), "Rejected")
     }
 
     Row(
