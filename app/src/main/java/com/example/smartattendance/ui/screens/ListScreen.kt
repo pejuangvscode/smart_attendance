@@ -54,7 +54,6 @@ fun ListScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Top bar
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = darkGray
