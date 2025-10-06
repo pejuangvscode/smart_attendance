@@ -1,5 +1,8 @@
 package com.example.smartattendance.ui.screens
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -16,6 +20,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.smartattendance.R
+import com.example.smartattendance.ui.theme.AppFontFamily
 import com.example.smartattendance.ui.theme.SmartAttendanceTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,8 +39,8 @@ fun LoginScreen(
     var loginError by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
 
-    val validUsername = "admin"
-    val validPassword = "password123"
+    val validUsername = "a"
+    val validPassword = "a"
 
     fun validateLogin() {
         isLoading = true
@@ -75,22 +81,21 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(60.dp))
         Box(
             modifier = Modifier
-                .size(100.dp)
-                .clip(CircleShape),
+                .size(100.dp),
             contentAlignment = Alignment.Center
         ) {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = Color.LightGray,
-                shape = CircleShape
-            ) {}
+            Image(
+                painter = painterResource(id = R.drawable.logo),
+                contentDescription = "App Logo",
+                modifier = Modifier.size(150.dp)
+            )
         }
 
         Spacer(modifier = Modifier.height(40.dp))
 
         Text(
             text = "Login",
-            fontSize = 28.sp,
+            fontSize = 52.sp,
             fontWeight = FontWeight.Normal,
             color = Color.Black,
             modifier = Modifier.fillMaxWidth(),
@@ -118,9 +123,12 @@ fun LoginScreen(
             }
         }
 
+        Spacer(modifier = Modifier.height(24.dp))
+
         Text(
             text = "Username",
-            fontSize = 16.sp,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Medium,
             color = Color.Black,
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Start
@@ -136,30 +144,38 @@ fun LoginScreen(
             },
             placeholder = {
                 Text(
-                    text = "Masukkan username",
+                    text = "Username",
                     color = Color.Gray
-                )
-            },
+                )            },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
+                .height(56.dp)
+                .border( // Add the border modifier here
+                    BorderStroke(
+                        width = 2.dp,
+                        color = if (loginError.contains("Username")) Color.Red else Color.Gray
+                    ),
+                    shape = RoundedCornerShape(8.dp) // Use the same shape as the text field
+                ),
             shape = RoundedCornerShape(8.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = if (loginError.contains("Username")) Color.Red else Color.Gray,
-                unfocusedBorderColor = if (loginError.contains("Username")) Color.Red else Color.Gray,
+                // Set default border colors to transparent to avoid drawing two borders
+                unfocusedBorderColor = Color.Transparent,
+                focusedBorderColor = Color.Transparent,
                 focusedTextColor = Color.Black,
                 unfocusedTextColor = Color.Black
             ),
             singleLine = true,
-            enabled = !isLoading
+            enabled = !isLoading,
         )
+
 
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
             text = "Password",
-            fontSize = 16.sp,
-            color = Color.Black,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Medium,
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Start
         )
@@ -174,17 +190,24 @@ fun LoginScreen(
             },
             placeholder = {
                 Text(
-                    text = "Masukkan password",
+                    text = "••••••••••••••••",
                     color = Color.Gray
-                )
-            },
+                )            },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
+                .height(56.dp)
+                .border( // Add the border modifier here
+                    BorderStroke(
+                        width = 2.dp,
+                        color = if (loginError.contains("Password")) Color.Red else Color.Gray
+                    ),
+                    shape = RoundedCornerShape(8.dp) // Use the same shape as the text field
+                ),
             shape = RoundedCornerShape(8.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = if (loginError.contains("Password")) Color.Red else Color.Gray,
-                unfocusedBorderColor = if (loginError.contains("Password")) Color.Red else Color.Gray,
+                // Set default border colors to transparent to avoid drawing two borders
+                unfocusedBorderColor = Color.Transparent,
+                focusedBorderColor = Color.Transparent,
                 focusedTextColor = Color.Black,
                 unfocusedTextColor = Color.Black
             ),
@@ -218,7 +241,8 @@ fun LoginScreen(
                 Text(
                     text = "Forgot Password?",
                     color = Color.Black,
-                    fontSize = 14.sp
+                    fontSize = 14.sp,
+                    fontFamily = AppFontFamily
                 )
             }
         }
@@ -246,7 +270,8 @@ fun LoginScreen(
                 Text(
                     text = "Log in",
                     color = Color.White,
-                    fontSize = 16.sp
+                    fontSize = 16.sp,
+                    fontFamily = AppFontFamily
                 )
             }
         }

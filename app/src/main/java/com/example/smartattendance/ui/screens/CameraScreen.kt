@@ -37,6 +37,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.example.smartattendance.ui.theme.SmartAttendanceTheme
+import com.example.smartattendance.ui.components.AppHeader
+import com.example.smartattendance.ui.components.HeaderType
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -54,8 +56,6 @@ fun CameraScreen(
     val darkGray = Color(0xFF3A3A3A)
 
     var hasCameraPermission by remember { mutableStateOf(false) }
-    var capturedImage by remember { mutableStateOf<Bitmap?>(null) }
-    var isShowingPreview by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -80,34 +80,13 @@ fun CameraScreen(
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        // Top bar
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = darkGray
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onBackClick) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Take Photo",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White
-                )
-            }
-        }
+        // Use AppHeader component
+        AppHeader(
+            title = "Take Photo",
+            headerType = HeaderType.BACK,
+            onBackClick = onBackClick,
+            showIcon = false
+        )
 
         if (!hasCameraPermission) {
             // Permission denied screen
@@ -145,82 +124,20 @@ fun CameraScreen(
                     }
                 }
             }
-        } else if (isShowingPreview && capturedImage != null) {
-            // Photo preview screen
-            Column(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                // Preview image
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Image(
-                        bitmap = capturedImage!!.asImageBitmap(),
-                        contentDescription = "Captured photo",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                }
-
-                // Bottom controls
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.Black)
-                        .padding(24.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Retake button
-                    FloatingActionButton(
-                        onClick = {
-                            isShowingPreview = false
-                            capturedImage = null
-                        },
-                        containerColor = Color.Gray,
-                        modifier = Modifier.size(60.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Retake",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-
-                    // Use photo button
-                    FloatingActionButton(
-                        onClick = {
-                            onPhotoTaken(capturedImage)
-                        },
-                        containerColor = Color(0xFF4CAF50),
-                        modifier = Modifier.size(60.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = "Use photo",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-            }
         } else {
-            // Camera preview
+            // Camera preview only - remove photo preview logic
             CameraPreview(
                 context = context,
                 lifecycleOwner = lifecycleOwner,
                 onPhotoCaptured = { bitmap ->
-                    capturedImage = bitmap
-                    isShowingPreview = true
+                    // Directly call onPhotoTaken to navigate to submit screen
+                    onPhotoTaken(bitmap)
                 }
             )
         }
     }
 }
+
 
 @Composable
 fun CameraPreview(
@@ -238,8 +155,6 @@ fun CameraPreview(
         // Camera preview
         Box(
             modifier = Modifier
-
-
                 .fillMaxWidth()
                 .weight(1f)
         ) {

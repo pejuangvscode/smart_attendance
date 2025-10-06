@@ -3,8 +3,10 @@ package com.example.smartattendance.ui.components
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.automirrored.filled.ViewList
+import androidx.compose.material.icons.automirrored.rounded.ViewList
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -32,7 +34,7 @@ fun AppBottomNavigation(
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             BottomNavItem(
-                icon = Icons.Default.Home,
+                icon = Icons.Rounded.Home,
                 label = "Home",
                 isSelected = currentRoute == "home",
                 onClick = {
@@ -42,16 +44,16 @@ fun AppBottomNavigation(
                 }
             )
             BottomNavItem(
-                icon = Icons.AutoMirrored.Filled.List,
-                label = "List",
-                isSelected = currentRoute == "list",
-                onClick = { onNavigate("list") }
-            )
-            BottomNavItem(
-                icon = Icons.Outlined.Schedule,
+                icon = Icons.AutoMirrored.Rounded.ViewList,
                 label = "Schedule",
                 isSelected = currentRoute == "schedule",
                 onClick = { onNavigate("schedule") }
+            )
+            BottomNavItem(
+                icon = Icons.Rounded.History,
+                label = "History",
+                isSelected = currentRoute == "history",
+                onClick = { onNavigate("history") }
             )
         }
     }

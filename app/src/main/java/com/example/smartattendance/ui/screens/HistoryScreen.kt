@@ -1,221 +1,274 @@
 package com.example.smartattendance.ui.screens
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.smartattendance.data.AttendanceRecord
-import com.example.smartattendance.data.AttendanceStatus
-import com.example.smartattendance.ui.theme.SmartAttendanceTheme
+import com.example.smartattendance.ui.components.AppHeader
+import com.example.smartattendance.ui.components.HeaderType
+import com.example.smartattendance.ui.theme.AppFontFamily
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onCardClick: (String, String) -> Unit = { _, _ -> },
+    onNavigateToSubmissionComplete: (String, String) -> Unit = { _, _ -> },
+    onNavigateToSchedule: () -> Unit = {}
 ) {
-    val darkGray = Color(0xFF3A3A3A)
-
-    // Sample data - AttendanceRecord(className, subject, type, status, time, date)
-    val attendanceRecords = listOf(
-        AttendanceRecord("KECERDASAN KOMPUTASIONAL", "AI Lab", "Laboratory Request Permission", AttendanceStatus.PENDING),
-        AttendanceRecord("KECERDASAN KOMPUTASIONAL", "AI Theory", "Request Permission", AttendanceStatus.PENDING),
-        AttendanceRecord("KEAMANAN KOMPUTER & JARINGAN", "Security Lab", "Laboratory", AttendanceStatus.NOT_YET, "10:00AM - 11:40AM"),
-        AttendanceRecord("KEAMANAN KOMPUTER & JARINGAN", "Security Theory", "", AttendanceStatus.NOT_YET, "7:15AM - 9:45AM"),
-        AttendanceRecord("PERANCANGAN & PEMROGRAMAN WEB", "Web Dev Lab", "Laboratory", AttendanceStatus.PRESENT, "10:00AM - 11:40AM", "Thursday, 25 Sep 2025"),
-        AttendanceRecord("PERANCANGAN & PEMROGRAMAN WEB", "Web Dev Theory", "", AttendanceStatus.PRESENT, "", "Thursday, 25 Sep 2025")
-    )
+    val attendanceItems = remember {
+        mapOf(
+            "Today - Saturday, 6 Oct 2025" to listOf(
+                Triple("KECERDASAN KOMPUTASIONAL Laboratory", "Request Permission", "Pending"),
+                Triple("KECERDASAN KOMPUTASIONAL", "Request Permission", "Pending"),
+                Triple("KEAMANAN KOMPUTER & JARINGAN Laboratory", "10:00AM - 11:40AM", "Not Yet"),
+                Triple("KEAMANAN KOMPUTER & JARINGAN", "7:15AM - 9:45AM", "Not Yet")
+            ),
+            "Friday, 4 Oct 2025" to listOf(
+                Triple("ALGORITMA & STRUKTUR DATA Laboratory", "1:15PM - 2:55PM", "Present"),
+                Triple("ALGORITMA & STRUKTUR DATA", "10:00AM - 11:40AM", "Present"),
+                Triple("MANAJEMEN BASIS DATA", "7:15AM - 9:45AM", "Late")
+            ),
+            "Thursday, 3 Oct 2025" to listOf(
+                Triple("PERANCANGAN & PEMROGRAMAN WEB Laboratory", "10:00AM - 11:40AM", "Present"),
+                Triple("PERANCANGAN & PEMROGRAMAN WEB", "7:15AM - 9:45AM", "Present")
+            ),
+            "Wednesday, 2 Oct 2025" to listOf(
+                Triple("INFORMATIKA DALAM KOM SELULER", "1:15PM - 3:45PM", "Absent")
+            ),
+            "Tuesday, 1 Oct 2025" to listOf(
+                Triple("PGMB. APLIKASI PLATFORM MOBILE Laboratory", "1:15PM - 2:55PM", "Present"),
+                Triple("PGMB. APLIKASI PLATFORM MOBILE", "10:15AM - 11:55AM", "Present"),
+                Triple("PEMBELAJARAN MESIN LANJUT", "7:15AM - 9:45AM", "Present")
+            ),
+            "Monday, 30 Sep 2025" to listOf(
+                Triple("KECERDASAN KOMPUTASIONAL Laboratory", "1:15PM - 2:55PM", "Present"),
+                Triple("KECERDASAN KOMPUTASIONAL", "8:45AM - 11:25AM", "Late")
+            ),
+            "Friday, 27 Sep 2025" to listOf(
+                Triple("KEAMANAN KOMPUTER & JARINGAN Laboratory", "10:00AM - 11:40AM", "Sick"),
+                Triple("KEAMANAN KOMPUTER & JARINGAN", "7:15AM - 9:45AM", "Sick")
+            ),
+            "Thursday, 26 Sep 2025" to listOf(
+                Triple("KEAMANAN KOMPUTER & JARINGAN Laboratory", "Request Permission", "Approved"),
+                Triple("KEAMANAN KOMPUTER & JARINGAN", "Request Permission", "Approved"),
+                Triple("PERANCANGAN & PEMROGRAMAN WEB Laboratory", "10:00AM - 11:40AM", "Excused"),
+                Triple("PERANCANGAN & PEMROGRAMAN WEB", "7:15AM - 9:45AM", "Excused")
+            ),
+            "Wednesday, 25 Sep 2025" to listOf(
+                Triple("PERANCANGAN & PEMROGRAMAN WEB Laboratory", "Request Permission", "Approved"),
+                Triple("PERANCANGAN & PEMROGRAMAN WEB", "Request Permission", "Approved"),
+                Triple("INFORMATIKA DALAM KOM SELULER", "1:15PM - 3:45PM", "Late")
+            ),
+            "Tuesday, 24 Sep 2025" to listOf(
+                Triple("INFORMATIKA DALAM KOM SELULER", "Request Permission", "Rejected")
+            ),
+            "Monday, 23 Sep 2025" to listOf(
+                Triple("PGMB. APLIKASI PLATFORM MOBILE Laboratory", "1:15PM - 2:55PM", "Present"),
+                Triple("PGMB. APLIKASI PLATFORM MOBILE", "10:15AM - 11:55AM", "Present"),
+                Triple("PEMBELAJARAN MESIN LANJUT", "7:15AM - 9:45AM", "Present")
+            )
+        )
+    }
 
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-    ) {
-        // Top bar
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = darkGray
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onBackClick) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "History",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White
-                )
-            }
-        }
-
-        // Content
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                // Today section header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Today",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-                    Icon(
-                        imageVector = Icons.Default.FilterList,
-                        contentDescription = "Filter",
-                        tint = Color.Black,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-
-            // Today's records
-            items(attendanceRecords.take(4)) { record ->
-                AttendanceRecordItem(record = record)
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Thursday, 25 Sep 2025",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
-                )
-            }
-
-            // Previous day records
-            items(attendanceRecords.drop(4)) { record ->
-                AttendanceRecordItem(record = record)
-            }
-        }
-    }
-}
-
-@Composable
-fun AttendanceRecordItem(
-    record: AttendanceRecord
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            .fillMaxWidth()
+            .fillMaxHeight()
+            .background(color = Color(0xFFFFFFFF))
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .weight(1f)
+                .background(color = Color(0xFFF6F6F6))
         ) {
-            Text(
-                text = record.className,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
+            // Header without animation interference
+            AppHeader(
+                title = "History",
+                headerType = HeaderType.BACK,
+                onBackClick = onBackClick
             )
 
-            if (record.type.isNotEmpty()) {
-                Text(
-                    text = record.type,
-                    fontSize = 12.sp,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // Simple content without complex animations
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = 24.dp, start = 24.dp, end = 24.dp, bottom = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
-                if (record.time.isNotEmpty()) {
-                    Text(
-                        text = record.time,
-                        fontSize = 12.sp,
-                        color = Color.Gray
-                    )
-                } else {
-                    Spacer(modifier = Modifier.width(1.dp))
-                }
+                attendanceItems.forEach { (date, items) ->
+                    item {
+                        Text(
+                            date,
+                            color = Color(0xFF000000),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = AppFontFamily,
+                            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                        )
+                    }
 
-                StatusIndicator(status = record.status)
+                    itemsIndexed(items) { index, (title, subtitle, status) ->
+                        SmoothAttendanceItem(
+                            title = title,
+                            subtitle = subtitle,
+                            status = status,
+                            onClick = {
+                                if (status.lowercase() == "not yet") {
+                                    onNavigateToSchedule()
+                                } else {
+                                    onCardClick(title, status)
+                                }
+                            }
+                        )
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-fun StatusIndicator(
-    status: AttendanceStatus
+private fun SmoothAttendanceItem(
+    title: String,
+    subtitle: String,
+    status: String,
+    onClick: () -> Unit = {}
 ) {
-    val (color, text) = when (status) {
-        AttendanceStatus.PENDING -> Pair(Color(0xFFFFA726), "Pending")
-        AttendanceStatus.NOT_YET -> Pair(Color.Gray, "Not Yet")
-        AttendanceStatus.PRESENT -> Pair(Color(0xFF66BB6A), "Present")
-        AttendanceStatus.APPROVED -> Pair(Color(0xFF66BB6A), "Approved")
-        AttendanceStatus.REJECTED -> Pair(Color(0xFFEF5350), "Rejected")
+    var isPressed by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    val statusColor = when (status.lowercase()) {
+        "present" -> Color(0xFF00CC2C)
+        "absent" -> Color(0xFFE53E3E)
+        "late" -> Color(0xFFFF9D00)
+        "pending" -> Color(0xFFFF9D00)
+        "approved" -> Color(0xFF4285F4)
+        "rejected" -> Color(0xFFE53E3E)
+        "not yet" -> Color(0xFF2C2D32)
+        "sick" -> Color(0xFF9C27B0)
+        "excused" -> Color(0xFF607D8B)
+        else -> Color(0xFF2C2D32)
     }
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically
+    val backgroundColor = when (status.lowercase()) {
+        "present" -> Color(0x1A00CD2C)
+        "absent" -> Color(0x1AE53E3E)
+        "late" -> Color(0x1AFF9D00)
+        "pending" -> Color(0x1AFF9D00)
+        "approved" -> Color(0x1A4285F4)
+        "rejected" -> Color(0x1AE53E3E)
+        "not yet" -> Color(0x1A2C2D32)
+        "sick" -> Color(0x1A9C27B0)
+        "excused" -> Color(0x1A607D8B)
+        else -> Color(0x1A2C2D32)
+    }
+
+    // Simple scale animation for press feedback
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.98f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessHigh
+        )
+    )
+
+    Card(
+        modifier = Modifier
+            .padding(bottom = 8.dp)
+            .fillMaxWidth()
+            .scale(scale)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {
+                isPressed = true
+                onClick()
+                coroutineScope.launch {
+                    delay(100)
+                    isPressed = false
+                }
+            },
+        colors = CardDefaults.cardColors(
+            containerColor = if (isPressed) Color(0xFFE8E8E8) else Color(0xFFFFFFFF)
+        ),
+        shape = RoundedCornerShape(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Box(
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .size(8.dp)
-                .clip(CircleShape)
-                .background(color)
-        )
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(
-            text = text,
-            fontSize = 12.sp,
-            color = color,
-            fontWeight = FontWeight.Medium
-        )
+                .padding(vertical = 14.dp, horizontal = 16.dp)
+                .fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(end = 30.dp)
+                    .weight(1f)
+            ) {
+                Text(
+                    title,
+                    color = Color(0xFF000000),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    subtitle,
+                    color = Color(0xFF888888),
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+
+            // Simplified Status Button
+            Surface(
+                modifier = Modifier.clip(shape = RoundedCornerShape(20.dp)),
+                color = backgroundColor,
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(vertical = 4.dp, horizontal = 10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .padding(end = 6.dp)
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(statusColor)
+                    )
+                    Text(
+                        status,
+                        color = statusColor,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
     }
 }
 
-@Preview(showBackground = true)
+@Preview
 @Composable
 fun HistoryScreenPreview() {
-    SmartAttendanceTheme {
-        HistoryScreen()
-    }
+    HistoryScreen()
 }
