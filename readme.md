@@ -4,7 +4,6 @@ A comprehensive Android application built with Jetpack Compose for managing stud
 
 ## Table of Contents
 - [Features](#features)
-- [Screenshots](#screenshots)
 - [Architecture](#architecture)
 - [Installation](#installation)
 - [Usage](#usage)
@@ -272,21 +271,3 @@ We welcome contributions to improve the Smart Attendance System!
 - **Performance**: Optimize app performance and responsiveness
 - **Testing**: Add unit tests and integration tests
 - **Documentation**: Improve code documentation and user guides
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support & Contact
-
-For support, questions, or feedback:
-- **Email**: support@smartattendance.com
-- **Issues**: Create an issue on GitHub for bug reports
-- **Feature Requests**: Use GitHub discussions for feature suggestions
-- **Documentation**: Check the wiki for detailed guides
-
----
-
-**Smart Attendance System** - Making attendance management simple, efficient, and modern!
-
-*Built with ❤️ using Jetpack Compose*
