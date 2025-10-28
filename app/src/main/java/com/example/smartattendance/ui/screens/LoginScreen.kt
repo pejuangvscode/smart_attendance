@@ -1,37 +1,62 @@
 package com.example.smartattendance.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.RemoveRedEye
+import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.smartattendance.R
+import com.example.smartattendance.api.AuthApi
 import com.example.smartattendance.ui.theme.AppFontFamily
 import com.example.smartattendance.ui.theme.SmartAttendanceTheme
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import com.example.smartattendance.utils.SessionManager
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
-    onLoginClick: (String, String) -> Unit = { _, _ -> }
+    sessionManager: SessionManager,
+    onLoginSuccess: (AuthApi.User) -> Unit = {},
+    onSignUpClick: () -> Unit = {}
 ) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -39,70 +64,71 @@ fun LoginScreen(
     var loginError by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
 
-    val validUsername = "a"
-    val validPassword = "a"
+    val coroutineScope = rememberCoroutineScope()
 
-    fun validateLogin() {
-        isLoading = true
-        loginError = ""
-
-        CoroutineScope(Dispatchers.Main).launch {
-            delay(1000)
-
-            when {
-                username.isEmpty() -> {
-                    loginError = "Username tidak boleh kosong"
-                }
-                password.isEmpty() -> {
-                    loginError = "Password tidak boleh kosong"
-                }
-                username != validUsername -> {
-                    loginError = "Username salah"
-                }
-                password != validPassword -> {
-                    loginError = "Password salah"
-                }
-                else -> {
-                    loginError = ""
-                    onLoginClick(username, password)
+    fun handleLogin() {
+        when {
+            username.isEmpty() -> {
+                loginError = "Username tidak boleh kosong"
+            }
+            password.isEmpty() -> {
+                loginError = "Password tidak boleh kosong"
+            }
+            else -> {
+                isLoading = true
+                coroutineScope.launch {
+                    val result = AuthApi.login(username, password, sessionManager)
+                    isLoading = false
+                    result.onSuccess { user ->
+                        onLoginSuccess(user)
+                    }.onFailure {
+                        loginError = it.message ?: "Login failed"
+                    }
                 }
             }
-            isLoading = false
         }
+    }
+
+    fun signUpPage() {
+        onSignUpClick()
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(24.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-
-        Spacer(modifier = Modifier.height(60.dp))
         Box(
             modifier = Modifier
-                .size(100.dp),
+                .fillMaxWidth()
+                .padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
             Image(
                 painter = painterResource(id = R.drawable.logo),
-                contentDescription = "App Logo",
-                modifier = Modifier.size(150.dp)
+                contentDescription = "App Logo"
             )
         }
 
         Spacer(modifier = Modifier.height(40.dp))
 
-        Text(
-            text = "Login",
-            fontSize = 52.sp,
-            fontWeight = FontWeight.Normal,
-            color = Color.Black,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Start
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+        ) {
+            Text(
+                text = "Log in",
+                fontFamily = AppFontFamily,
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black.copy(alpha = 0.8f)
+            )
+        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         if (loginError.isNotEmpty()) {
             Card(
@@ -123,20 +149,7 @@ fun LoginScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = "Username",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Medium,
-            color = Color.Black,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Start
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        OutlinedTextField(
+        TextField(
             value = username,
             onValueChange = {
                 username = it
@@ -145,21 +158,16 @@ fun LoginScreen(
             placeholder = {
                 Text(
                     text = "Username",
-                    color = Color.Gray
-                )            },
+                    color = Color.Gray,
+                    fontFamily = AppFontFamily
+                )
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .border( // Add the border modifier here
-                    BorderStroke(
-                        width = 2.dp,
-                        color = if (loginError.contains("Username")) Color.Red else Color.Gray
-                    ),
-                    shape = RoundedCornerShape(8.dp) // Use the same shape as the text field
-                ),
+                .background(color = Color.Gray.copy(alpha = 0.1f), shape = RoundedCornerShape(8.dp)),
             shape = RoundedCornerShape(8.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                // Set default border colors to transparent to avoid drawing two borders
                 unfocusedBorderColor = Color.Transparent,
                 focusedBorderColor = Color.Transparent,
                 focusedTextColor = Color.Black,
@@ -169,20 +177,9 @@ fun LoginScreen(
             enabled = !isLoading,
         )
 
-
         Spacer(modifier = Modifier.height(24.dp))
 
-        Text(
-            text = "Password",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Start
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        OutlinedTextField(
+        TextField(
             value = password,
             onValueChange = {
                 password = it
@@ -192,20 +189,17 @@ fun LoginScreen(
                 Text(
                     text = "••••••••••••••••",
                     color = Color.Gray
-                )            },
+                )
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .border( // Add the border modifier here
-                    BorderStroke(
-                        width = 2.dp,
-                        color = if (loginError.contains("Password")) Color.Red else Color.Gray
-                    ),
-                    shape = RoundedCornerShape(8.dp) // Use the same shape as the text field
+                .background(
+                    color = Color.Gray.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(8.dp)
                 ),
             shape = RoundedCornerShape(8.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                // Set default border colors to transparent to avoid drawing two borders
                 unfocusedBorderColor = Color.Transparent,
                 focusedBorderColor = Color.Transparent,
                 focusedTextColor = Color.Black,
@@ -219,11 +213,19 @@ fun LoginScreen(
                     onClick = { passwordVisible = !passwordVisible },
                     enabled = !isLoading
                 ) {
-                    Text(
-                        text = if (passwordVisible) "Hide" else "Show",
-                        color = Color.Gray,
-                        fontSize = 14.sp
-                    )
+                    if (!passwordVisible) {
+                        Icon(
+                            imageVector = Icons.Outlined.RemoveRedEye,
+                            contentDescription = "Hide Password",
+                            tint = Color.Gray
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Outlined.VisibilityOff,
+                            contentDescription = "Show Password",
+                            tint = Color.Gray
+                        )
+                    }
                 }
             }
         )
@@ -240,7 +242,7 @@ fun LoginScreen(
             ) {
                 Text(
                     text = "Forgot Password?",
-                    color = Color.Black,
+                    color = Color.Gray,
                     fontSize = 14.sp,
                     fontFamily = AppFontFamily
                 )
@@ -250,7 +252,7 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(32.dp))
 
         Button(
-            onClick = { validateLogin() },
+            onClick = { handleLogin() },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
@@ -276,7 +278,15 @@ fun LoginScreen(
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        TextButton(
+            onClick = { signUpPage() },
+        ) {
+            Text(
+                text = "Dont have an account? Sign Up",
+                color = Color.Gray,
+                fontFamily = AppFontFamily
+            )
+        }
     }
 }
 
@@ -284,6 +294,10 @@ fun LoginScreen(
 @Composable
 fun LoginScreenPreview() {
     SmartAttendanceTheme {
-        LoginScreen()
+        LoginScreen(
+            sessionManager = SessionManager(LocalContext.current),
+            onLoginSuccess = {},
+            onSignUpClick = {}
+        )
     }
 }

@@ -2,6 +2,7 @@ package com.example.smartattendance.ui.screens
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -19,18 +20,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.smartattendance.api.AuthApi
 import com.example.smartattendance.ui.theme.SmartAttendanceTheme
+import com.example.smartattendance.utils.SessionManager
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.DayOfWeek
 import java.util.Locale
 import kotlin.math.abs
+import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalContext
 
 data class AttendanceData(
     val present: Int = 60,
@@ -50,6 +56,8 @@ data class AttendanceData(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
+    user: AuthApi.User?,
+    sessionManager: SessionManager,
     onLogout: () -> Unit = {},
     onSubmitAttendance: () -> Unit = {},
     onDateClick: () -> Unit = {},
@@ -59,6 +67,7 @@ fun HomeScreen(
     val darkGray = Color(0xFF2C2D32)
     val redColor = Color(0xFFE0697E)
     val attendanceData = remember { AttendanceData() }
+    val coroutineScope = rememberCoroutineScope()
 
     // Get current date
     val currentDate = remember { LocalDate.now() }
@@ -66,7 +75,8 @@ fun HomeScreen(
     val dayOfWeek = currentDate.dayOfWeek
     val month = currentDate.format(DateTimeFormatter.ofPattern("MMMM", Locale.ENGLISH))
     val year = currentDate.year
-    val dayName = dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }
+    val dayName = dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, Locale.ENGLISH)
+
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -102,7 +112,7 @@ fun HomeScreen(
             ) {
                 Column {
                     Text(
-                        text = "Hello, Teo!",
+                        text = "Hello, ${user?.name ?: "User"}!",
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -114,7 +124,12 @@ fun HomeScreen(
                     )
                 }
 
-                IconButton(onClick = onLogout) {
+                IconButton(onClick = {
+                    coroutineScope.launch {
+                        sessionManager.clearSession()
+                        onLogout()
+                    }
+                }) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.ExitToApp,
                         contentDescription = "Logout",
@@ -193,7 +208,7 @@ fun HomeScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "26", // Fixed date as shown in image
+                                text = dayOfMonth.toString(),
                                 fontSize = 70.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.Black
@@ -201,13 +216,13 @@ fun HomeScreen(
                             Spacer(modifier = Modifier.width(16.dp))
                             Column {
                                 Text(
-                                    text = "Friday",
+                                    text = dayName,
                                     fontSize = 20.sp,
                                     fontWeight = FontWeight.Medium,
                                     color = Color.Black
                                 )
                                 Text(
-                                    text = "September 2025",
+                                    text = "$month $year",
                                     fontSize = 14.sp,
                                     color = Color.Gray
                                 )
@@ -231,7 +246,7 @@ fun HomeScreen(
                             WeekDayIndicator("T", true, darkGray)
                             WeekDayIndicator("W", true, redColor)
                             WeekDayIndicator("Th", true, darkGray)
-                            WeekDayIndicator("Fr", false, Color.LightGray)
+                            WeekDayIndicator("F", false, Color.LightGray)
                         }
                     }
                 }
@@ -330,93 +345,20 @@ fun HomeScreen(
 }
 
 @Composable
-fun AttendanceDonutChart(
-    attendanceData: AttendanceData,
-    modifier: Modifier = Modifier
-) {
-    val colors = listOf(
-        Color(0xFF4CAF50), // Present - Green
-        Color(0xFF2196F3), // Excused - Blue
-        Color(0xFFFF9800), // Sick - Orange
-        Color(0xFFF44336), // Late - Red
-        Color(0xFF9E9E9E)  // Absent - Gray
-    )
-
-    val percentages = listOf(
-        attendanceData.presentPercentage,
-        attendanceData.excusedPercentage,
-        attendanceData.sickPercentage,
-        attendanceData.latePercentage,
-        attendanceData.absentPercentage
-    )
-
+fun WeekDayIndicator(day: String, attended: Boolean, color: Color) {
     Box(
-        modifier = modifier,
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(if (attended) color else Color.White)
+            .border(2.dp, color, CircleShape),
         contentAlignment = Alignment.Center
     ) {
-        // Draw individual circular progress indicators
-        percentages.forEachIndexed { index, percentage ->
-            val strokeWidth = 8.dp
-            val baseRadius = 50.dp
-            val radiusOffset = (index * 12).dp
-            val radius = baseRadius - radiusOffset // Different radius for each ring
-
-            Canvas(
-                modifier = Modifier.size(radius * 2 + strokeWidth)
-            ) {
-                val sweepAngle = (percentage / 100f) * 360f
-
-                drawArc(
-                    color = Color.LightGray.copy(alpha = 0.3f),
-                    startAngle = 0f,
-                    sweepAngle = 360f,
-                    useCenter = false,
-                    style = Stroke(width = strokeWidth.toPx()),
-                    size = androidx.compose.ui.geometry.Size(
-                        radius.toPx() * 2,
-                        radius.toPx() * 2
-                    ),
-                    topLeft = androidx.compose.ui.geometry.Offset(
-                        (size.width - radius.toPx() * 2) / 2,
-                        (size.height - radius.toPx() * 2) / 2
-                    )
-                )
-
-                // Progress arc
-                drawArc(
-                    color = Color.Gray,
-                    startAngle = -90f, // Start from top
-                    sweepAngle = sweepAngle,
-                    useCenter = false,
-                    style = Stroke(width = strokeWidth.toPx()),
-                    size = androidx.compose.ui.geometry.Size(
-                        radius.toPx() * 2,
-                        radius.toPx() * 2
-                    ),
-                    topLeft = androidx.compose.ui.geometry.Offset(
-                        (size.width - radius.toPx() * 2) / 2,
-                        (size.height - radius.toPx() * 2) / 2
-                    )
-                )
-            }
-        }
-
-        // Center text showing total
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = attendanceData.total.toString(),
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
-            )
-            Text(
-                text = "Total",
-                fontSize = 12.sp,
-                color = Color.Gray
-            )
-        }
+        Text(
+            text = day,
+            color = if (attended) Color.White else color,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -425,164 +367,44 @@ fun IndividualDonutChart(
     value: Int,
     percentage: Float,
     label: String,
-    color: Color,
-    modifier: Modifier = Modifier
+    color: Color
 ) {
-    val strokeWidth = 4.dp
-    val radius = 30.dp
-
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
+        verticalArrangement = Arrangement.Center
     ) {
         Box(
-            modifier = Modifier.size(radius * 2 + strokeWidth),
+            modifier = Modifier.size(60.dp),
             contentAlignment = Alignment.Center
         ) {
-            Canvas(
-                modifier = Modifier.size(radius * 2)
-            ) {
-                // Background circle (light gray)
-                drawArc(
-                    color = Color.LightGray.copy(alpha = 0.7f),
-                    startAngle = 0f,
-                    sweepAngle = 360f,
-                    useCenter = false,
-                    style = Stroke(width = strokeWidth.toPx()),
-                    size = androidx.compose.ui.geometry.Size(
-                        radius.toPx() * 2,
-                        radius.toPx() * 2
-                    ),
-                    topLeft = androidx.compose.ui.geometry.Offset(
-                        (size.width - radius.toPx() * 2) / 2,
-                        (size.height - radius.toPx() * 2) / 2
-                    )
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val strokeWidth = 8.dp.toPx()
+                // Background circle
+                drawCircle(
+                    color = Color.LightGray.copy(alpha = 0.3f),
+                    style = Stroke(width = strokeWidth)
                 )
-
-                // Progress arc
-                val sweepAngle = (percentage / 100f) * 360f
+                // Foreground arc
                 drawArc(
-                    color = Color(0xFF3A3A3A),
-                    startAngle = -90f, // Start from top
-                    sweepAngle = sweepAngle,
+                    color = color,
+                    startAngle = -90f,
+                    sweepAngle = percentage * 360 / 100, // Convert percentage to angle
                     useCenter = false,
-                    style = Stroke(width = strokeWidth.toPx()),
-                    size = androidx.compose.ui.geometry.Size(
-                        radius.toPx() * 2,
-                        radius.toPx() * 2
-                    ),
-                    topLeft = androidx.compose.ui.geometry.Offset(
-                        (size.width - radius.toPx() * 2) / 2,
-                        (size.height - radius.toPx() * 2) / 2
-                    )
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                 )
             }
-
-            // Center text showing value
             Text(
-                text = "$value%",
-                fontSize = 18.sp,
+                text = value.toString(),
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black
             )
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Label below the chart
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label,
             fontSize = 12.sp,
-            color = Color.Black,
-            fontWeight = FontWeight.Medium
-        )
-    }
-}
-@Composable
-fun StatItemWithPercentage(
-    value: String,
-    percentage: String,
-    label: String,
-    color: Color
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .clip(CircleShape)
-                .background(color)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Column {
-            Row {
-                Text(
-                    text = value,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = "($percentage)",
-                    fontSize = 12.sp,
-                    color = Color.Gray
-                )
-            }
-            Text(
-                text = label,
-                fontSize = 12.sp,
-                color = Color.Gray
-            )
-        }
-    }
-}
-
-@Composable
-fun WeekDayIndicator(
-    day: String,
-    isPresent: Boolean,
-    color: Color
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = day,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            color = Color.Black,
-            modifier = Modifier.padding(bottom = 6.dp)
-        )
-        Box(
-            modifier = Modifier
-                .size(14.dp)
-                .clip(CircleShape)
-                .background(if (isPresent) color else Color.LightGray)
-        )
-    }
-}
-
-@Composable
-fun StatItem(
-    value: String,
-    label: String
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = value,
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.Black
-        )
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            color = Color.Gray,
-            modifier = Modifier.padding(top = 2.dp)
+            color = Color.Gray
         )
     }
 }
@@ -591,6 +413,6 @@ fun StatItem(
 @Composable
 fun HomeScreenPreview() {
     SmartAttendanceTheme {
-        HomeScreen()
+        HomeScreen(user = AuthApi.User(name = "Teo", email = "", password = ""), sessionManager = SessionManager(LocalContext.current))
     }
 }

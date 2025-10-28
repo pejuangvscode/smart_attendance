@@ -1,53 +1,65 @@
 package com.example.smartattendance
 
+import android.app.Activity
 import android.graphics.Bitmap
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.smartattendance.ui.screens.*
+import com.example.smartattendance.api.AuthApi
 import com.example.smartattendance.ui.components.AppBottomNavigation
+import com.example.smartattendance.ui.screens.AttendanceScreen
+import com.example.smartattendance.ui.screens.CameraScreen
+import com.example.smartattendance.ui.screens.HistoryScreen
+import com.example.smartattendance.ui.screens.HomeScreen
+import com.example.smartattendance.ui.screens.ListScreen
+import com.example.smartattendance.ui.screens.LoginScreen
+import com.example.smartattendance.ui.screens.ScheduleScreen
+import com.example.smartattendance.ui.screens.SignUpScreen
+import com.example.smartattendance.ui.screens.SubmissionCompleteScreen
+import com.example.smartattendance.ui.screens.SubmitAttendanceScreen
 import com.example.smartattendance.ui.theme.SmartAttendanceTheme
+import com.example.smartattendance.utils.SessionManager
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // This enables edge-to-edge display and makes the status bar transparent.
         enableEdgeToEdge()
-
-        // Set status bar color to match header
-        window.statusBarColor = android.graphics.Color.parseColor("#FF2C2D32")
-        WindowCompat.getInsetsController(window, window.decorView)?.let { controller ->
-            controller.isAppearanceLightStatusBars = false
-        }
 
         setContent {
             SmartAttendanceTheme {
-                // Set status bar color using compose
-                val view = LocalView.current
-                LaunchedEffect(Unit) {
-                    val activity = view.context as ComponentActivity
-                    activity.window.statusBarColor = Color(0xFF2C2D32).toArgb()
-                    WindowCompat.getInsetsController(activity.window, view)?.let { controller ->
-                        controller.isAppearanceLightStatusBars = false
-                    }
-                }
-
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = Color.White
@@ -65,12 +77,46 @@ fun AppNavigation() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: "login"
+    // Initialize SessionManager
+    val context = LocalView.current.context
+    val sessionManager = remember { SessionManager(context) }
 
     // State for captured photo and attendance detail parameters
     var capturedPhoto by remember { mutableStateOf<Bitmap?>(null) }
     var isLateAttendance by remember { mutableStateOf(false) }
     var selectedClassName by remember { mutableStateOf("") }
     var selectedStatus by remember { mutableStateOf("") }
+
+    // State to hold the current user
+    var user by remember { mutableStateOf<AuthApi.User?>(null) }
+
+    // Check session on app start
+    var startDestination by remember { mutableStateOf("login") }
+    LaunchedEffect(Unit) {
+        sessionManager.userFlow.collect { savedUser ->
+            if (savedUser != null) {
+                user = savedUser
+                startDestination = "home"
+            } else {
+                startDestination = "login"
+            }
+        }
+    }
+
+
+    // --- Dynamic Status Bar Color ---
+    val view = LocalView.current
+    // This effect runs whenever the currentRoute changes.
+    // It adjusts the status bar icon color based on the screen's background.
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            // When on 'home' screen (dark header), icons are light (false).
+            // On other screens (light background), icons are dark (true).
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = currentRoute != "home"
+        }
+    }
+    // --- End of Status Bar Logic ---
 
     // Routes where bottom navigation should be shown
     val routesWithBottomNav = setOf("home", "attendance", "history", "schedule", "request_permission", "create_permission_request", "submission_complete", "pending_request")
@@ -113,7 +159,7 @@ fun AppNavigation() {
     ) { paddingValues ->
         NavHost(
             navController = navController,
-            startDestination = "login",
+            startDestination = startDestination,
             modifier = Modifier.padding(paddingValues),
             enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(300)) },
             exitTransition = { slideOutHorizontally(targetOffsetX = { -it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(300)) },
@@ -126,11 +172,26 @@ fun AppNavigation() {
                 exitTransition = { fadeOut(animationSpec = tween(300)) }
             ) {
                 LoginScreen(
-                    onLoginClick = { username, password ->
-                        if (username.isNotEmpty() && password.isNotEmpty()) {
-                            navController.navigate("home") {
-                                popUpTo("login") { inclusive = true }
-                            }
+                    sessionManager = sessionManager,
+                    onLoginSuccess = { loggedInUser ->
+                        user = loggedInUser
+                        navController.navigate("home") {
+                            popUpTo("login") { inclusive = true }
+                        }
+                    },
+                    onSignUpClick = {
+                        navController.navigate("sign_up")
+                    }
+                )
+            }
+
+            composable(
+                "sign_up"
+            ){
+                SignUpScreen(
+                    onNavigateToLogin ={
+                        navController.navigate("login"){
+                            popUpTo(0)
                         }
                     }
                 )
@@ -138,7 +199,10 @@ fun AppNavigation() {
 
             composable("home") {
                 HomeScreen(
+                    user = user,
+                    sessionManager = sessionManager,
                     onLogout = {
+                        user = null // Clear user on logout
                         navController.navigate("login") {
                             popUpTo(0)
                         }
@@ -151,9 +215,6 @@ fun AppNavigation() {
                     },
                     onRequestPermission = {
                         navController.navigate("request_permission")
-                    },
-                    onBackClick = {
-                        navController.popBackStack()
                     }
                 )
             }
@@ -179,9 +240,7 @@ fun AppNavigation() {
                     },
                     onPhotoTaken = { bitmap ->
                         capturedPhoto = bitmap
-                        // For now, we'll set isLateAttendance based on current time
-                        // This can be enhanced later with proper time checking logic
-                        isLateAttendance = false // You can add time checking logic here
+                        isLateAttendance = false
                         navController.navigate("submit_attendance")
                     }
                 )
@@ -212,20 +271,6 @@ fun AppNavigation() {
                         navController.navigate("home") {
                             popUpTo("home") { inclusive = true }
                             launchSingleTop = true
-                        }
-                    },
-                    onNavigateSchedule = {
-                        navController.navigate("schedule") {
-                            popUpTo("home") { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    onNavigateHistory = {
-                        navController.navigate("history") {
-                            popUpTo("home") { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
                         }
                     }
                 )
@@ -308,166 +353,14 @@ fun AppNavigation() {
                                 }
                             }
                         }
-                    },
-                    onSubmitAttendance = {
-                        navController.navigate("attendance")
-                    },
-                    onScheduleItemClick = { title, time ->
-                        // Extract course code from title
-                        val courseCode = when {
-                            title.contains("KECERDASAN KOMPUTASIONAL") && title.contains("Laboratory") -> "INF 20052 - KKLR"
-                            title.contains("KECERDASAN KOMPUTASIONAL") -> "INF 20052 - KKKR"
-                            title.contains("PEMBELAJARAN MESIN LANJUT") -> "INF 20151 - PMLR"
-                            title.contains("PGMB. APLIKASI PLATFORM MOBILE") && title.contains("Laboratory") -> "INF 20054 - PALR"
-                            title.contains("PGMB. APLIKASI PLATFORM MOBILE") -> "INF 20054 - PAPR"
-                            title.contains("INFORMATIKA DALAM KOM SELULER") -> "INF 20262 - IKSR"
-                            title.contains("PERANCANGAN & PEMROGRAMAN WEB") && title.contains("Laboratory") -> "INF 20053 - PPLR"
-                            title.contains("PERANCANGAN & PEMROGRAMAN WEB") -> "INF 20053 - PWR"
-                            title.contains("KEAMANAN KOMPUTER & JARINGAN") && title.contains("Laboratory") -> "INF 20051 - KKLR"
-                            title.contains("KEAMANAN KOMPUTER & JARINGAN") -> "INF 20051 - KKJR"
-                            else -> "UNKNOWN"
-                        }
-
-                        // Get current day name based on current date (October 6, 2025 is Sunday, so Friday would be index 4)
-                        val dayName = "Friday" // Today is Friday based on your schedule
-
-                        navController.navigate("class_detail/$dayName/$courseCode")
-                    }
-                )
-            }
-
-            composable("request_permission") {
-                RequestPermissionScreen(
-                    onBackClick = {
-                        navController.popBackStack()
-                    },
-                    onCreateRequest = {
-                        // Navigate to the form screen for creating request
-                        navController.navigate("create_permission_form") {
-                            popUpTo("request_permission") { inclusive = false }
-                            launchSingleTop = true
-                        }
-                    },
-                    onNavigate = { route ->
-                        when (route) {
-                            "home" -> {
-                                navController.navigate("home") {
-                                    popUpTo("home") { inclusive = true }
-                                    launchSingleTop = true
-                                }
-                            }
-                            else -> {
-                                navController.navigate(route) {
-                                    popUpTo("home") { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
-                        }
-                    }
-                )
-            }
-
-            composable("create_permission_request") {
-                CreatePermissionRequestScreen(
-                    onBackClick = {
-                        navController.popBackStack()
-                    },
-                    onNavigateToRequestList = {
-                        navController.navigate("request_permission") {
-                            popUpTo("request_permission") { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    }
-                )
-            }
-
-            composable("create_permission_form") {
-                CreatePermissionFormScreen(
-                    onBackClick = {
-                        navController.popBackStack()
-                    },
-                    onSubmit = {
-                        navController.navigate("create_permission_request") {
-                            popUpTo("request_permission") { inclusive = false }
-                            launchSingleTop = true
-                        }
-                    }
-                )
-            }
-
-            composable("class_detail/{dayName}/{courseCode}") { backStackEntry ->
-                val dayName = backStackEntry.arguments?.getString("dayName") ?: ""
-                val courseCode = backStackEntry.arguments?.getString("courseCode") ?: ""
-                ClassDetailScreen(
-                    dayName = dayName,
-                    courseCode = courseCode,
-                    onBackClick = {
-                        navController.popBackStack()
                     }
                 )
             }
 
             composable("submission_complete") {
-                SubmitionComplete(
-                    onBackClick = {
-                        navController.popBackStack()
-                    },
-                    onNavigateHome = {
-                        navController.navigate("home") {
-                            popUpTo("home") { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    }
-                )
-            }
-
-            composable("pending_request") {
-                CreatePermissionRequestScreen(
-                    onBackClick = {
-                        navController.popBackStack()
-                    },
-                    onNavigateToRequestList = {
-                        navController.navigate("home") {
-                            popUpTo("home") { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    }
-                )
-            }
-
-            composable("attendance_detail") {
-                AttendanceDetailScreen(
-                    className = selectedClassName,
-                    status = selectedStatus,
-                    onBackClick = {
-                        navController.popBackStack()
-                    },
-                    onNavigate = { route ->
-                        when (route) {
-                            "home" -> {
-                                navController.navigate("home") {
-                                    popUpTo("home") { inclusive = true }
-                                    launchSingleTop = true
-                                }
-                            }
-                            else -> {
-                                navController.navigate(route) {
-                                    popUpTo("home") { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
-                        }
-                    }
-                )
-            }
-
-            // New route for submission complete detail from history
-            composable("submission_complete_detail") {
                 SubmissionCompleteScreen(
-                    status = selectedStatus,
-                    courseName = selectedClassName,
+                    status = selectedStatus, // pass the selected status
+                    courseName = selectedClassName, // pass the selected class name
                     onBackClick = {
                         navController.popBackStack()
                     },
