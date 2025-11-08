@@ -28,8 +28,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.smartattendance.api.AuthApi
+import com.example.smartattendance.api.StatisticsApi
+import com.example.smartattendance.data.AttendanceStatistics
 import com.example.smartattendance.ui.theme.SmartAttendanceTheme
 import com.example.smartattendance.utils.SessionManager
+import com.example.smartattendance.utils.SupabaseClient
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.DayOfWeek
@@ -37,21 +40,7 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
-
-data class AttendanceData(
-    val present: Int = 60,
-    val excused: Int = 5,
-    val sick: Int = 3,
-    val late: Int = 8,
-    val absent: Int = 12
-) {
-    val total = present + excused + sick + late + absent
-    val presentPercentage = if (total > 0) (present * 100f / total) else 0f
-    val excusedPercentage = if (total > 0) (excused * 100f / total) else 0f
-    val sickPercentage = if (total > 0) (sick * 100f / total) else 0f
-    val latePercentage = if (total > 0) (late * 100f / total) else 0f
-    val absentPercentage = if (total > 0) (absent * 100f / total) else 0f
-}
+import android.util.Log
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,8 +55,42 @@ fun HomeScreen(
 ) {
     val darkGray = Color(0xFF2C2D32)
     val redColor = Color(0xFFE0697E)
-    val attendanceData = remember { AttendanceData() }
     val coroutineScope = rememberCoroutineScope()
+
+    // State untuk statistik presensi
+    var attendanceStatistics by remember { mutableStateOf(AttendanceStatistics.empty()) }
+    var isLoadingStatistics by remember { mutableStateOf(false) }
+    var statisticsError by remember { mutableStateOf<String?>(null) }
+
+    // Initialize StatisticsApi
+    val statisticsApi = remember { StatisticsApi(SupabaseClient.client) }
+
+    // Fetch statistics saat pertama kali load
+    LaunchedEffect(user?.user_id) {
+        user?.user_id?.let { userId ->
+            isLoadingStatistics = true
+            statisticsError = null
+
+            try {
+                val result = statisticsApi.getUserStatistics(userId)
+                result.fold(
+                    onSuccess = { statistics ->
+                        attendanceStatistics = AttendanceStatistics.fromOverallStatistic(statistics)
+                        Log.d("HomeScreen", "Statistics loaded: $attendanceStatistics")
+                    },
+                    onFailure = { error ->
+                        statisticsError = error.message ?: "Failed to load statistics"
+                        Log.e("HomeScreen", "Error loading statistics", error)
+                    }
+                )
+            } catch (e: Exception) {
+                statisticsError = e.message ?: "Unknown error occurred"
+                Log.e("HomeScreen", "Exception loading statistics", e)
+            } finally {
+                isLoadingStatistics = false
+            }
+        }
+    }
 
     // Get current date
     val currentDate = remember { LocalDate.now() }
@@ -112,13 +135,13 @@ fun HomeScreen(
             ) {
                 Column {
                     Text(
-                        text = "Hello, ${user?.name ?: "User"}!",
+                        text = "Hello, ${user?.full_name ?: "User"}!",
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
                     Text(
-                        text = "01082230017/Semester Ganjil",
+                        text = "${user?.nim ?: "Unknown"}/Semester Ganjil",
                         fontSize = 14.sp,
                         color = Color.White.copy(alpha = 0.8f)
                     )
@@ -273,35 +296,64 @@ fun HomeScreen(
                             modifier = Modifier.padding(bottom = 16.dp)
                         )
 
-                        // Donut charts row
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            IndividualDonutChart(
-                                value = 60,
-                                percentage = 68.2f,
-                                label = "Present",
-                                color = Color(0xFF4CAF50)
-                            )
-                            IndividualDonutChart(
-                                value = 0,
-                                percentage = 0f,
-                                label = "Excused",
-                                color = Color(0xFF2196F3)
-                            )
-                            IndividualDonutChart(
-                                value = 0,
-                                percentage = 0f,
-                                label = "Sick",
-                                color = Color(0xFFFF9800)
-                            )
-                            IndividualDonutChart(
-                                value = 20,
-                                percentage = 22.7f,
-                                label = "Absent",
-                                color = Color(0xFF9E9E9E)
-                            )
+                        if (isLoadingStatistics) {
+                            // Loading state
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(100.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    color = darkGray,
+                                    modifier = Modifier.size(40.dp)
+                                )
+                            }
+                        } else if (statisticsError != null) {
+                            // Error state
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(100.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Failed to load statistics",
+                                    color = Color.Red,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        } else {
+                            // Donut charts row with real data
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                IndividualDonutChart(
+                                    value = attendanceStatistics.present,
+                                    percentage = attendanceStatistics.presentPercentage,
+                                    label = "Present",
+                                    color = Color(0xFF4CAF50)
+                                )
+                                IndividualDonutChart(
+                                    value = attendanceStatistics.excused,
+                                    percentage = attendanceStatistics.excusedPercentage,
+                                    label = "Excused",
+                                    color = Color(0xFF2196F3)
+                                )
+                                IndividualDonutChart(
+                                    value = attendanceStatistics.sick,
+                                    percentage = attendanceStatistics.sickPercentage,
+                                    label = "Sick",
+                                    color = Color(0xFFFF9800)
+                                )
+                                IndividualDonutChart(
+                                    value = attendanceStatistics.absent,
+                                    percentage = attendanceStatistics.absentPercentage,
+                                    label = "Absent",
+                                    color = Color(0xFF9E9E9E)
+                                )
+                            }
                         }
                     }
                 }
@@ -413,6 +465,6 @@ fun IndividualDonutChart(
 @Composable
 fun HomeScreenPreview() {
     SmartAttendanceTheme {
-        HomeScreen(user = AuthApi.User(name = "Teo", email = "", password = ""), sessionManager = SessionManager(LocalContext.current))
+        HomeScreen(user = AuthApi.User(full_name = "Teo", email = "", password_hash = ""), sessionManager = SessionManager(LocalContext.current))
     }
 }

@@ -26,16 +26,26 @@ object AuthApi {
 
     @Serializable
     data class User(
-        val id: Int? = null,
+        val user_id: String? = null,
+        val full_name: String? = null,
+        val nim: String? = null,
         val email: String,
-        val password: String,
-        val name: String? = null
+        val password_hash: String,
+        val role: String = "student",
+        val created_at: String? = null,
+        val updated_at: String? = null
     )
 
-    suspend fun signUp(email: String, password: String, name: String? = null): Result<Unit> {
+    suspend fun signUp(email: String, password: String, fullName: String? = null, nim: String? = null): Result<Unit> {
         // --- VALIDASI INPUT ---
         if (email.isBlank() || password.isBlank()) {
             return Result.failure(Exception("Email dan password tidak boleh kosong."))
+        }
+        if (fullName.isNullOrBlank()) {
+            return Result.failure(Exception("Nama lengkap tidak boleh kosong."))
+        }
+        if (nim.isNullOrBlank()) {
+            return Result.failure(Exception("NIM tidak boleh kosong."))
         }
         if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
             return Result.failure(Exception("Format email tidak valid."))
@@ -47,11 +57,55 @@ object AuthApi {
 
         return try {
             val hashedPassword = hashPassword(password)
-            val user = User(email = email, password = hashedPassword, name = name)
+            val user = User(
+                user_id = nim, // Use NIM as user_id
+                full_name = fullName,
+                nim = nim,
+                email = email,
+                password_hash = hashedPassword,
+                role = "student"
+            )
             supabase.postgrest.from("users").insert(user)
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(Exception("Gagal mendaftar. Silakan periksa koneksi internet dan coba lagi."))
+            // Log the actual error for debugging
+            println("SignUp Error: ${e.javaClass.simpleName}: ${e.message}")
+            e.printStackTrace()
+
+            val errorMessage = when {
+                e.message?.contains("duplicate", ignoreCase = true) == true ||
+                e.message?.contains("unique", ignoreCase = true) == true ||
+                e.message?.contains("already exists", ignoreCase = true) == true ->
+                    "Email atau NIM sudah terdaftar. Silakan gunakan yang lain."
+
+                e.message?.contains("UnknownHostException", ignoreCase = true) == true ||
+                e.message?.contains("ConnectException", ignoreCase = true) == true ||
+                e.message?.contains("SocketTimeoutException", ignoreCase = true) == true ||
+                e.message?.contains("network", ignoreCase = true) == true ||
+                e.message?.contains("internet", ignoreCase = true) == true ->
+                    "Tidak ada koneksi internet. Silakan periksa koneksi Anda dan coba lagi."
+
+                e.message?.contains("timeout", ignoreCase = true) == true ->
+                    "Koneksi timeout. Silakan coba lagi."
+
+                e.message?.contains("unauthorized", ignoreCase = true) == true ||
+                e.message?.contains("401", ignoreCase = true) == true ->
+                    "Tidak diizinkan. Periksa konfigurasi aplikasi."
+
+                e.message?.contains("forbidden", ignoreCase = true) == true ||
+                e.message?.contains("403", ignoreCase = true) == true ->
+                    "Akses ditolak. Periksa konfigurasi database."
+
+                e.message?.contains("bad request", ignoreCase = true) == true ||
+                e.message?.contains("400", ignoreCase = true) == true ->
+                    "Data tidak valid. Periksa format input."
+
+                e.message?.isNotBlank() == true ->
+                    "Error: ${e.message}"
+
+                else -> "Gagal mendaftar. Error tidak diketahui."
+            }
+            Result.failure(Exception(errorMessage))
         }
     }
 
@@ -76,7 +130,7 @@ object AuthApi {
             if (response.isNotEmpty()) {
                 val user = response.first()
                 val hashedPassword = hashPassword(password)
-                if (user.password == hashedPassword) {
+                if (user.password_hash == hashedPassword) {
                     sessionManager.saveUser(user)
                     Result.success(user)
                 } else {

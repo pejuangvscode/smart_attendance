@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CopilotDiffPersistence">
+    <option name="pendingDiffs">
+      <map>
+        <entry key="$PROJECT_DIR$/database_functions.sql">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/database_functions.sql" />
+              <option name="updatedContent" value="-- ==============================&#10;-- STORED PROCEDURES FOR STATISTICS&#10;-- ==============================&#10;&#10;-- Function untuk mendapatkan statistik keseluruhan user&#10;CREATE OR REPLACE FUNCTION get_user_statistics(p_user_id VARCHAR)&#10;RETURNS TABLE(&#10;    total_present BIGINT,&#10;    total_late BIGINT, &#10;    total_absent BIGINT,&#10;    total_meetings BIGINT,&#10;    attendance_percentage NUMERIC&#10;) AS $$&#10;BEGIN&#10;    RETURN QUERY&#10;    SELECT &#10;        COALESCE(SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END), 0) as total_present,&#10;        COALESCE(SUM(CASE WHEN a.status = 'late' THEN 1 ELSE 0 END), 0) as total_late,&#10;        COALESCE(SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END), 0) as total_absent,&#10;        COALESCE(COUNT(a.attendance_id), 0) as total_meetings,&#10;        COALESCE(&#10;            ROUND(&#10;                SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) * 100.0 / &#10;                NULLIF(COUNT(a.attendance_id), 0), &#10;                2&#10;            ), &#10;            0&#10;        ) as attendance_percentage&#10;    FROM enrollments e&#10;    LEFT JOIN attendances a ON e.enrollment_id = a.enrollment_id&#10;    WHERE e.user_id = p_user_id;&#10;END;&#10;$$ LANGUAGE plpgsql;&#10;&#10;-- Function untuk mendapatkan statistik per mata kuliah&#10;CREATE OR REPLACE FUNCTION get_course_statistics(p_user_id VARCHAR)&#10;RETURNS TABLE(&#10;    course_code VARCHAR,&#10;    course_name VARCHAR,&#10;    total_pertemuan BIGINT,&#10;    hadir BIGINT,&#10;    terlambat BIGINT,&#10;    tidak_hadir BIGINT,&#10;    persentase_kehadiran NUMERIC&#10;) AS $$&#10;BEGIN&#10;    RETURN QUERY&#10;    SELECT &#10;        c.course_code,&#10;        c.course_name,&#10;        COUNT(a.attendance_id) as total_pertemuan,&#10;        SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) as hadir,&#10;        SUM(CASE WHEN a.status = 'late' THEN 1 ELSE 0 END) as terlambat,&#10;        SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) as tidak_hadir,&#10;        ROUND(&#10;            SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) * 100.0 / &#10;            NULLIF(COUNT(a.attendance_id), 0), &#10;            2&#10;        ) as persentase_kehadiran&#10;    FROM enrollments e&#10;    JOIN courses c ON e.course_id = c.course_id&#10;    LEFT JOIN attendances a ON e.enrollment_id = a.enrollment_id&#10;    WHERE e.user_id = p_user_id&#10;    GROUP BY c.course_code, c.course_name, c.course_id&#10;    ORDER BY c.course_code;&#10;END;&#10;$$ LANGUAGE plpgsql;" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>

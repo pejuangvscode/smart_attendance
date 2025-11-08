@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.RemoveRedEye
 import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -62,15 +63,33 @@ fun SignUpScreen(
     var passwordIsSame by remember { mutableStateOf(true) }
     var fullName by remember { mutableStateOf("") }
     var nim by remember { mutableStateOf("") }
+    var showSuccessDialog by remember { mutableStateOf(false) }
 
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
 
     fun isNetworkAvailable(): Boolean {
-        val connectivityManager = ContextCompat.getSystemService(context, ConnectivityManager::class.java)
-        val network = connectivityManager?.activeNetwork
-        val capabilities = connectivityManager?.getNetworkCapabilities(network)
-        return capabilities != null && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        return try {
+            val connectivityManager = ContextCompat.getSystemService(context, ConnectivityManager::class.java)
+                ?: return false
+
+            val network = connectivityManager.activeNetwork ?: return false
+            val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+
+            // Check if the device has internet capability
+            val hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+
+            // Check if it's connected via WiFi or Cellular
+            val hasWifi = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+            val hasCellular = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+            val hasEthernet = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+
+            return hasInternet && (hasWifi || hasCellular || hasEthernet)
+        } catch (e: Exception) {
+            // Fallback: if there's an error, assume network is available
+            // This prevents false negatives
+            true
+        }
     }
 
     fun handleRegister(){
@@ -91,22 +110,42 @@ fun SignUpScreen(
                 loginError = "Confirm Password is required"
             }
             else -> {
-                if (!isNetworkAvailable()) {
-                    loginError = "Tidak ada koneksi internet. Silakan periksa koneksi Anda dan coba lagi."
-                    return
-                }
                 passwordIsSame = (password == confirmPassword)
                 if(!passwordIsSame){
                     loginError = "Password must be the same"
                 } else {
                     isLoading = true
+                    loginError = ""
                     coroutineScope.launch {
-                        val result = AuthApi.signUp(email, password, fullName)
-                        isLoading = false
-                        result.onSuccess {
-                            onNavigateToLogin()
-                        }.onFailure {
-                            loginError = it.message ?: "Sign up failed"
+                        try {
+                            val result = AuthApi.signUp(email, password, fullName, nim)
+                            isLoading = false
+                            result.onSuccess {
+                                loginError = ""
+                                showSuccessDialog = true
+                            }.onFailure { exception ->
+                                loginError = exception.message ?: "Pendaftaran gagal. Silakan coba lagi."
+                                // Log error for debugging
+                                println("SignUp UI Error: ${exception.message}")
+                            }
+                        } catch (e: Exception) {
+                            isLoading = false
+                            // Log error for debugging
+                            println("SignUp UI Exception: ${e.javaClass.simpleName}: ${e.message}")
+                            e.printStackTrace()
+
+                            loginError = when {
+                                e.message?.contains("UnknownHostException", ignoreCase = true) == true ||
+                                e.message?.contains("ConnectException", ignoreCase = true) == true ||
+                                e.message?.contains("SocketTimeoutException", ignoreCase = true) == true ||
+                                e.message?.contains("network", ignoreCase = true) == true ||
+                                e.message?.contains("internet", ignoreCase = true) == true ->
+                                    "Tidak ada koneksi internet. Silakan periksa koneksi Anda dan coba lagi."
+                                e.message?.isNotBlank() == true ->
+                                    "Error: ${e.message}"
+                                else ->
+                                    "Terjadi kesalahan. Silakan coba lagi."
+                            }
                         }
                     }
                 }
@@ -389,6 +428,43 @@ fun SignUpScreen(
                 fontFamily = AppFontFamily
             )
         }
+    }
+
+    // Success Dialog
+    if (showSuccessDialog) {
+        AlertDialog(
+            onDismissRequest = { },
+            title = {
+                Text(
+                    text = "Pendaftaran Berhasil!",
+                    fontFamily = AppFontFamily,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "Akun Anda telah berhasil dibuat. Silakan login dengan akun yang baru dibuat.",
+                    fontFamily = AppFontFamily
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showSuccessDialog = false
+                        onNavigateToLogin()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF424242)
+                    )
+                ) {
+                    Text(
+                        text = "OK",
+                        color = Color.White,
+                        fontFamily = AppFontFamily
+                    )
+                }
+            }
+        )
     }
 }
 
