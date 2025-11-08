@@ -32,7 +32,6 @@ import com.example.smartattendance.api.StatisticsApi
 import com.example.smartattendance.data.AttendanceStatistics
 import com.example.smartattendance.ui.theme.SmartAttendanceTheme
 import com.example.smartattendance.utils.SessionManager
-import com.example.smartattendance.utils.SupabaseClient
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.DayOfWeek
@@ -63,7 +62,7 @@ fun HomeScreen(
     var statisticsError by remember { mutableStateOf<String?>(null) }
 
     // Initialize StatisticsApi
-    val statisticsApi = remember { StatisticsApi(SupabaseClient.client) }
+    val statisticsApi = remember { StatisticsApi(AuthApi.supabase) }
 
     // Fetch statistics saat pertama kali load
     LaunchedEffect(user?.user_id) {

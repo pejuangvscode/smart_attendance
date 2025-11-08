@@ -53,11 +53,3 @@ data class WeeklyStatus(
     val friday: AttendanceStatus? = null
 )
 
-@Serializable
-enum class AttendanceStatus {
-    PRESENT,
-    LATE,
-    ABSENT,
-    EXCUSED,
-    SICK
-}

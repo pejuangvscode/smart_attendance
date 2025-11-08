@@ -3,6 +3,7 @@ package com.example.smartattendance.api
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Columns
+import io.github.jan.supabase.postgrest.query.filter.PostgrestFilterBuilder
 import kotlinx.serialization.Serializable
 import android.util.Log
 
@@ -46,8 +47,11 @@ class StatisticsApi(private val supabase: SupabaseClient) {
 
             // Get all enrollments for the user
             val enrollmentsResponse = supabase.postgrest["enrollments"]
-                .select(Columns.list("enrollment_id"))
-                .eq("user_id", userId)
+                .select(Columns.list("enrollment_id")) {
+                    filter {
+                        eq("user_id", userId)
+                    }
+                }
 
             val enrollments = enrollmentsResponse.decodeList<EnrollmentRecord>()
 
@@ -62,19 +66,22 @@ class StatisticsApi(private val supabase: SupabaseClient) {
                 ))
             }
 
-            val enrollmentIds = enrollments.map { it.enrollment_id }
+            val enrollmentIds = enrollments.map { enrollment -> enrollment.enrollment_id }
 
             // Get all attendance records for user's enrollments
             val attendanceResponse = supabase.postgrest["attendances"]
-                .select(Columns.list("status"))
-                .`in`("enrollment_id", enrollmentIds)
+                .select(Columns.list("status")) {
+                    filter {
+                        isIn("enrollment_id", enrollmentIds)
+                    }
+                }
 
             val attendanceRecords = attendanceResponse.decodeList<AttendanceRecord>()
 
             // Calculate statistics
-            val totalPresent = attendanceRecords.count { it.status == "present" }
-            val totalLate = attendanceRecords.count { it.status == "late" }
-            val totalAbsent = attendanceRecords.count { it.status == "absent" }
+            val totalPresent = attendanceRecords.count { record -> record.status == "present" }
+            val totalLate = attendanceRecords.count { record -> record.status == "late" }
+            val totalAbsent = attendanceRecords.count { record -> record.status == "absent" }
             val totalMeetings = attendanceRecords.size
             val attendancePercentage = if (totalMeetings > 0) {
                 (totalPresent * 100.0 / totalMeetings)
