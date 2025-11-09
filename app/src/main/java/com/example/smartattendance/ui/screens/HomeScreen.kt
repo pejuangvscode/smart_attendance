@@ -61,6 +61,10 @@ fun HomeScreen(
     var isLoadingStatistics by remember { mutableStateOf(false) }
     var statisticsError by remember { mutableStateOf<String?>(null) }
 
+    // State untuk weekly status
+    var weeklyStatus by remember { mutableStateOf<Map<String, String?>>(emptyMap()) }
+    var isLoadingWeekly by remember { mutableStateOf(false) }
+
     // Initialize StatisticsApi
     val statisticsApi = remember { StatisticsApi(AuthApi.supabase) }
 
@@ -68,11 +72,13 @@ fun HomeScreen(
     LaunchedEffect(user?.user_id) {
         user?.user_id?.let { userId ->
             isLoadingStatistics = true
+            isLoadingWeekly = true
             statisticsError = null
 
             try {
-                val result = statisticsApi.getUserStatistics(userId)
-                result.fold(
+                // Fetch overall statistics
+                val statsResult = statisticsApi.getUserStatistics(userId)
+                statsResult.fold(
                     onSuccess = { statistics ->
                         attendanceStatistics = AttendanceStatistics.fromOverallStatistic(statistics)
                         Log.d("HomeScreen", "Statistics loaded: $attendanceStatistics")
@@ -82,11 +88,24 @@ fun HomeScreen(
                         Log.e("HomeScreen", "Error loading statistics", error)
                     }
                 )
+
+                // Fetch weekly status
+                val weeklyResult = statisticsApi.getWeeklyStatus(userId)
+                weeklyResult.fold(
+                    onSuccess = { weekly ->
+                        weeklyStatus = weekly
+                        Log.d("HomeScreen", "Weekly status loaded: $weeklyStatus")
+                    },
+                    onFailure = { error ->
+                        Log.e("HomeScreen", "Error loading weekly status", error)
+                    }
+                )
             } catch (e: Exception) {
                 statisticsError = e.message ?: "Unknown error occurred"
                 Log.e("HomeScreen", "Exception loading statistics", e)
             } finally {
                 isLoadingStatistics = false
+                isLoadingWeekly = false
             }
         }
     }
@@ -260,15 +279,56 @@ fun HomeScreen(
                             modifier = Modifier.padding(bottom = 12.dp)
                         )
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            WeekDayIndicator("M", true, Color(0xFFFF9D00))
-                            WeekDayIndicator("T", true, darkGray)
-                            WeekDayIndicator("W", true, redColor)
-                            WeekDayIndicator("Th", true, darkGray)
-                            WeekDayIndicator("F", false, Color.LightGray)
+                        if (isLoadingWeekly) {
+                            // Loading state for weekly status
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    color = darkGray,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        } else {
+                            // Display weekly status from database
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                WeekDayIndicator(
+                                    day = "M",
+                                    status = weeklyStatus["monday"],
+                                    darkGray = darkGray,
+                                    redColor = redColor
+                                )
+                                WeekDayIndicator(
+                                    day = "T",
+                                    status = weeklyStatus["tuesday"],
+                                    darkGray = darkGray,
+                                    redColor = redColor
+                                )
+                                WeekDayIndicator(
+                                    day = "W",
+                                    status = weeklyStatus["wednesday"],
+                                    darkGray = darkGray,
+                                    redColor = redColor
+                                )
+                                WeekDayIndicator(
+                                    day = "Th",
+                                    status = weeklyStatus["thursday"],
+                                    darkGray = darkGray,
+                                    redColor = redColor
+                                )
+                                WeekDayIndicator(
+                                    day = "F",
+                                    status = weeklyStatus["friday"],
+                                    darkGray = darkGray,
+                                    redColor = redColor
+                                )
+                            }
                         }
                     }
                 }
@@ -413,7 +473,25 @@ fun HomeScreen(
 }
 
 @Composable
-fun WeekDayIndicator(day: String, attended: Boolean, color: Color) {
+fun WeekDayIndicator(
+    day: String,
+    status: String?,
+    darkGray: Color,
+    redColor: Color
+) {
+    // Determine color based on attendance status
+    val color = when (status) {
+        "present" -> Color(0xFF4CAF50)  // Green for present
+        "late" -> Color(0xFFFF9800)      // Orange for late
+        "absent" -> redColor              // Red for absent
+        "excused" -> Color(0xFF2196F3)   // Blue for excused
+        "sick" -> Color(0xFFFFC107)      // Yellow for sick
+        null -> Color.LightGray           // Light gray for no data
+        else -> Color.LightGray
+    }
+
+    val attended = status != null
+
     Box(
         modifier = Modifier
             .size(40.dp)
@@ -425,7 +503,8 @@ fun WeekDayIndicator(day: String, attended: Boolean, color: Color) {
         Text(
             text = day,
             color = if (attended) Color.White else color,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            fontSize = 12.sp
         )
     }
 }

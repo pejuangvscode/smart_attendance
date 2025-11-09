@@ -39,6 +39,12 @@ data class EnrollmentRecord(
     val enrollment_id: Int
 )
 
+@Serializable
+data class WeeklyAttendanceRecord(
+    val attendance_date: String,
+    val status: String
+)
+
 class StatisticsApi(private val supabase: SupabaseClient) {
 
     suspend fun getUserStatistics(userId: String): Result<OverallStatistic> {
@@ -123,6 +129,76 @@ class StatisticsApi(private val supabase: SupabaseClient) {
         } catch (e: Exception) {
             Log.e("StatisticsApi", "Error fetching course statistics", e)
             Result.failure(e)
+        }
+    }
+
+    suspend fun getWeeklyStatus(userId: String): Result<Map<String, String?>> {
+        return try {
+            Log.d("StatisticsApi", "Fetching weekly status for user: $userId")
+
+            // Get all enrollments for the user
+            val enrollmentsResponse = supabase.postgrest["enrollments"]
+                .select(Columns.list("enrollment_id")) {
+                    filter {
+                        eq("user_id", userId)
+                    }
+                }
+
+            val enrollments = enrollmentsResponse.decodeList<EnrollmentRecord>()
+
+            if (enrollments.isEmpty()) {
+                Log.d("StatisticsApi", "No enrollments found for user")
+                return Result.success(emptyMap())
+            }
+
+            val enrollmentIds = enrollments.map { enrollment -> enrollment.enrollment_id }
+
+            // Calculate this week's date range (Monday to Friday)
+            val today = java.time.LocalDate.now()
+            val monday = today.with(java.time.DayOfWeek.MONDAY)
+            val friday = today.with(java.time.DayOfWeek.FRIDAY)
+
+            // Get attendance records for this week
+            val attendanceResponse = supabase.postgrest["attendances"]
+                .select(Columns.list("attendance_date", "status")) {
+                    filter {
+                        isIn("enrollment_id", enrollmentIds)
+                        gte("attendance_date", monday.toString())
+                        lte("attendance_date", friday.toString())
+                    }
+                }
+
+            val attendanceRecords = attendanceResponse.decodeList<WeeklyAttendanceRecord>()
+
+            // Map attendance records by day of week
+            val weeklyStatus = mutableMapOf<String, String?>()
+            weeklyStatus["monday"] = null
+            weeklyStatus["tuesday"] = null
+            weeklyStatus["wednesday"] = null
+            weeklyStatus["thursday"] = null
+            weeklyStatus["friday"] = null
+
+            attendanceRecords.forEach { record ->
+                val date = java.time.LocalDate.parse(record.attendance_date)
+                val dayOfWeek = date.dayOfWeek
+
+                when (dayOfWeek) {
+                    java.time.DayOfWeek.MONDAY -> weeklyStatus["monday"] = record.status
+                    java.time.DayOfWeek.TUESDAY -> weeklyStatus["tuesday"] = record.status
+                    java.time.DayOfWeek.WEDNESDAY -> weeklyStatus["wednesday"] = record.status
+                    java.time.DayOfWeek.THURSDAY -> weeklyStatus["thursday"] = record.status
+                    java.time.DayOfWeek.FRIDAY -> weeklyStatus["friday"] = record.status
+                    else -> {}
+                }
+            }
+
+            Log.d("StatisticsApi", "Weekly status fetched: $weeklyStatus")
+            Result.success(weeklyStatus)
+
+        } catch (e: Exception) {
+            Log.e("StatisticsApi", "Error fetching weekly status", e)
+            // Return empty map on error
+            Result.success(emptyMap())
         }
     }
 }
