@@ -323,35 +323,52 @@ fun HomeScreen(
                                 )
                             }
                         } else {
-                            // Donut charts row with real data
-                            Row(
+                            // Donut charts - Scrollable horizontal dengan 5 charts
+                            LazyRow(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceEvenly
+                                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp)
                             ) {
-                                IndividualDonutChart(
-                                    value = attendanceStatistics.present,
-                                    percentage = attendanceStatistics.presentPercentage,
-                                    label = "Present",
-                                    color = Color(0xFF4CAF50)
-                                )
-                                IndividualDonutChart(
-                                    value = attendanceStatistics.excused,
-                                    percentage = attendanceStatistics.excusedPercentage,
-                                    label = "Excused",
-                                    color = Color(0xFF2196F3)
-                                )
-                                IndividualDonutChart(
-                                    value = attendanceStatistics.sick,
-                                    percentage = attendanceStatistics.sickPercentage,
-                                    label = "Sick",
-                                    color = Color(0xFFFF9800)
-                                )
-                                IndividualDonutChart(
-                                    value = attendanceStatistics.absent,
-                                    percentage = attendanceStatistics.absentPercentage,
-                                    label = "Absent",
-                                    color = Color(0xFF9E9E9E)
-                                )
+                                item {
+                                    IndividualDonutChart(
+                                        value = attendanceStatistics.present,
+                                        percentage = attendanceStatistics.presentPercentage,
+                                        label = "Present",
+                                        color = Color(0xFF4CAF50)
+                                    )
+                                }
+                                item {
+                                    IndividualDonutChart(
+                                        value = attendanceStatistics.late,
+                                        percentage = attendanceStatistics.latePercentage,
+                                        label = "Late",
+                                        color = Color(0xFFFF9800)
+                                    )
+                                }
+                                item {
+                                    IndividualDonutChart(
+                                        value = attendanceStatistics.excused,
+                                        percentage = attendanceStatistics.excusedPercentage,
+                                        label = "Excused",
+                                        color = Color(0xFF2196F3)
+                                    )
+                                }
+                                item {
+                                    IndividualDonutChart(
+                                        value = attendanceStatistics.sick,
+                                        percentage = attendanceStatistics.sickPercentage,
+                                        label = "Sick",
+                                        color = Color(0xFFFFC107)
+                                    )
+                                }
+                                item {
+                                    IndividualDonutChart(
+                                        value = attendanceStatistics.absent,
+                                        percentage = attendanceStatistics.absentPercentage,
+                                        label = "Absent",
+                                        color = Color(0xFF9E9E9E)
+                                    )
+                                }
                             }
                         }
                     }
