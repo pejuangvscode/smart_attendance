@@ -1,6 +1,6 @@
 package com.example.smartattendance.ui.screens
 
-import androidx.compose.animation.*
+import android.util.Log
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,13 +17,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.smartattendance.api.AuthApi
+import com.example.smartattendance.api.HistoryApi
+import com.example.smartattendance.api.HistoryGroupedItem
 import com.example.smartattendance.ui.components.AppHeader
 import com.example.smartattendance.ui.components.HeaderType
 import com.example.smartattendance.ui.theme.AppFontFamily
+import com.example.smartattendance.utils.SessionManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -31,62 +37,46 @@ import kotlinx.coroutines.launch
 fun HistoryScreen(
     onBackClick: () -> Unit = {},
     onCardClick: (String, String) -> Unit = { _, _ -> },
-    onNavigateToSubmissionComplete: (String, String) -> Unit = { _, _ -> },
     onNavigateToSchedule: () -> Unit = {}
 ) {
-    val attendanceItems = remember {
-        mapOf(
-            "Today - Saturday, 6 Oct 2025" to listOf(
-                Triple("KECERDASAN KOMPUTASIONAL Laboratory", "Request Permission", "Pending"),
-                Triple("KECERDASAN KOMPUTASIONAL", "Request Permission", "Pending"),
-                Triple("KEAMANAN KOMPUTER & JARINGAN Laboratory", "10:00AM - 11:40AM", "Not Yet"),
-                Triple("KEAMANAN KOMPUTER & JARINGAN", "7:15AM - 9:45AM", "Not Yet")
-            ),
-            "Friday, 4 Oct 2025" to listOf(
-                Triple("ALGORITMA & STRUKTUR DATA Laboratory", "1:15PM - 2:55PM", "Present"),
-                Triple("ALGORITMA & STRUKTUR DATA", "10:00AM - 11:40AM", "Present"),
-                Triple("MANAJEMEN BASIS DATA", "7:15AM - 9:45AM", "Late")
-            ),
-            "Thursday, 3 Oct 2025" to listOf(
-                Triple("PERANCANGAN & PEMROGRAMAN WEB Laboratory", "10:00AM - 11:40AM", "Present"),
-                Triple("PERANCANGAN & PEMROGRAMAN WEB", "7:15AM - 9:45AM", "Present")
-            ),
-            "Wednesday, 2 Oct 2025" to listOf(
-                Triple("INFORMATIKA DALAM KOM SELULER", "1:15PM - 3:45PM", "Absent")
-            ),
-            "Tuesday, 1 Oct 2025" to listOf(
-                Triple("PGMB. APLIKASI PLATFORM MOBILE Laboratory", "1:15PM - 2:55PM", "Present"),
-                Triple("PGMB. APLIKASI PLATFORM MOBILE", "10:15AM - 11:55AM", "Present"),
-                Triple("PEMBELAJARAN MESIN LANJUT", "7:15AM - 9:45AM", "Present")
-            ),
-            "Monday, 30 Sep 2025" to listOf(
-                Triple("KECERDASAN KOMPUTASIONAL Laboratory", "1:15PM - 2:55PM", "Present"),
-                Triple("KECERDASAN KOMPUTASIONAL", "8:45AM - 11:25AM", "Late")
-            ),
-            "Friday, 27 Sep 2025" to listOf(
-                Triple("KEAMANAN KOMPUTER & JARINGAN Laboratory", "10:00AM - 11:40AM", "Sick"),
-                Triple("KEAMANAN KOMPUTER & JARINGAN", "7:15AM - 9:45AM", "Sick")
-            ),
-            "Thursday, 26 Sep 2025" to listOf(
-                Triple("KEAMANAN KOMPUTER & JARINGAN Laboratory", "Request Permission", "Approved"),
-                Triple("KEAMANAN KOMPUTER & JARINGAN", "Request Permission", "Approved"),
-                Triple("PERANCANGAN & PEMROGRAMAN WEB Laboratory", "10:00AM - 11:40AM", "Excused"),
-                Triple("PERANCANGAN & PEMROGRAMAN WEB", "7:15AM - 9:45AM", "Excused")
-            ),
-            "Wednesday, 25 Sep 2025" to listOf(
-                Triple("PERANCANGAN & PEMROGRAMAN WEB Laboratory", "Request Permission", "Approved"),
-                Triple("PERANCANGAN & PEMROGRAMAN WEB", "Request Permission", "Approved"),
-                Triple("INFORMATIKA DALAM KOM SELULER", "1:15PM - 3:45PM", "Late")
-            ),
-            "Tuesday, 24 Sep 2025" to listOf(
-                Triple("INFORMATIKA DALAM KOM SELULER", "Request Permission", "Rejected")
-            ),
-            "Monday, 23 Sep 2025" to listOf(
-                Triple("PGMB. APLIKASI PLATFORM MOBILE Laboratory", "1:15PM - 2:55PM", "Present"),
-                Triple("PGMB. APLIKASI PLATFORM MOBILE", "10:15AM - 11:55AM", "Present"),
-                Triple("PEMBELAJARAN MESIN LANJUT", "7:15AM - 9:45AM", "Present")
-            )
-        )
+    val context = LocalContext.current
+    val sessionManager = remember { SessionManager(context) }
+
+    var attendanceItems by remember { mutableStateOf<List<HistoryGroupedItem>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    // Load data when screen is first composed - similar to HomeScreen pattern
+    LaunchedEffect(Unit) {
+        isLoading = true
+        errorMessage = null
+
+        try {
+            val userId = sessionManager.getUserId()
+            Log.d("HistoryScreen", "Fetching history for user: $userId")
+
+            if (userId != null && userId.isNotEmpty()) {
+                val result = HistoryApi.getAttendanceHistory(
+                    supabase = AuthApi.supabase,
+                    userId = userId
+                )
+
+                result.onSuccess { data ->
+                    attendanceItems = data
+                    Log.d("HistoryScreen", "Successfully loaded ${data.size} date groups")
+                }.onFailure { error ->
+                    errorMessage = error.message ?: "Failed to load history"
+                    Log.e("HistoryScreen", "Error loading history", error)
+                }
+            } else {
+                errorMessage = "User not logged in"
+            }
+        } catch (e: Exception) {
+            errorMessage = e.message ?: "An error occurred"
+            Log.e("HistoryScreen", "Exception loading history", e)
+        } finally {
+            isLoading = false
+        }
     }
 
     Column(
@@ -108,37 +98,102 @@ fun HistoryScreen(
                 onBackClick = onBackClick
             )
 
-            // Simple content without complex animations
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = 24.dp, start = 24.dp, end = 24.dp, bottom = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(0.dp)
-            ) {
-                attendanceItems.forEach { (date, items) ->
-                    item {
-                        Text(
-                            date,
-                            color = Color(0xFF000000),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = AppFontFamily,
-                            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-                        )
+            // Content with loading and error states
+            when {
+                isLoading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = Color(0xFF2C2D32))
                     }
+                }
 
-                    itemsIndexed(items) { index, (title, subtitle, status) ->
-                        SmoothAttendanceItem(
-                            title = title,
-                            subtitle = subtitle,
-                            status = status,
-                            onClick = {
-                                if (status.lowercase() == "not yet") {
-                                    onNavigateToSchedule()
-                                } else {
-                                    onCardClick(title, status)
-                                }
+                errorMessage != null -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(24.dp)
+                        ) {
+                            Text(
+                                text = "Failed to load history",
+                                fontFamily = AppFontFamily,
+                                fontWeight = FontWeight.Medium,
+                                color = Color.Gray,
+                                fontSize = 16.sp
+                            )
+                            Text(
+                                text = errorMessage ?: "",
+                                fontFamily = AppFontFamily,
+                                color = Color.Gray,
+                                fontSize = 14.sp,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                        }
+                    }
+                }
+
+                attendanceItems.isEmpty() -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(24.dp)
+                        ) {
+                            Text(
+                                text = "No History Yet",
+                                fontFamily = AppFontFamily,
+                                fontWeight = FontWeight.Medium,
+                                color = Color.Gray,
+                                fontSize = 16.sp
+                            )
+                            Text(
+                                text = "Your attendance history will appear here",
+                                fontFamily = AppFontFamily,
+                                color = Color.Gray,
+                                fontSize = 14.sp,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                        }
+                    }
+                }
+
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(top = 24.dp, start = 24.dp, end = 24.dp, bottom = 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                    ) {
+                        attendanceItems.forEach { dateGroup ->
+                            item {
+                                Text(
+                                    dateGroup.date,
+                                    color = Color(0xFF000000),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = AppFontFamily,
+                                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                                )
                             }
-                        )
+
+                            itemsIndexed(dateGroup.items) { index, item ->
+                                SmoothAttendanceItem(
+                                    title = item.title,
+                                    subtitle = item.subtitle,
+                                    status = item.status,
+                                    onClick = {
+                                        onCardClick(item.title, item.status)
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }

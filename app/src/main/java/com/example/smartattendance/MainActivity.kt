@@ -286,11 +286,6 @@ fun AppNavigation() {
                         selectedStatus = status
                         navController.navigate("attendance_detail")
                     },
-                    onNavigateToSubmissionComplete = { status, courseName ->
-                        selectedClassName = courseName
-                        selectedStatus = status
-                        navController.navigate("submission_complete_detail")
-                    },
                     onNavigateToSchedule = {
                         navController.navigate("schedule") {
                             popUpTo("home") { saveState = true }
@@ -334,6 +329,7 @@ fun AppNavigation() {
 
             composable("schedule") {
                 ScheduleScreen(
+                    user = user,
                     onNavigateBack = {
                         navController.popBackStack()
                     },

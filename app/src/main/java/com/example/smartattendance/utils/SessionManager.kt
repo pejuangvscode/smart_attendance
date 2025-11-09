@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.smartattendance.api.AuthApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "user_prefs")
@@ -48,5 +49,11 @@ class SessionManager(private val context: Context) {
 
     suspend fun clearSession() {
         context.dataStore.edit { it.clear() }
+    }
+
+    suspend fun getUserId(): String? {
+        return context.dataStore.data.map { prefs ->
+            prefs[USER_ID_KEY]
+        }.first()
     }
 }

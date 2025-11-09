@@ -20,25 +20,132 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.smartattendance.api.AuthApi
+import com.example.smartattendance.api.ScheduleApi
 import com.example.smartattendance.ui.components.AppBottomNavigation
 import com.example.smartattendance.ui.components.AppHeader
 import com.example.smartattendance.ui.components.HeaderType
 import com.example.smartattendance.ui.theme.AppFontFamily
+import com.example.smartattendance.utils.SessionManager
+import kotlinx.coroutines.launch
+import android.util.Log
 import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun ScheduleScreen(
+    user: AuthApi.User?,
     onNavigateBack: () -> Unit,
     onNavigate: (String) -> Unit,
     onSubmitAttendance: () -> Unit = {},
     onScheduleItemClick: (String, String) -> Unit = { _, _ -> }
 ) {
+    // State for schedules
+    var weekSchedule by remember { mutableStateOf<List<DayScheduleData>>(emptyList()) }
+    var todaySchedule by remember { mutableStateOf<List<ScheduleItemUI>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var selectedDayIndex by remember { mutableStateOf(getCurrentDayIndex()) }
+
+    // Initialize ScheduleApi
+    val scheduleApi = remember { ScheduleApi(AuthApi.supabase) }
+
+    // Get current day info
+    val currentDayName = remember { getCurrentDayName() }
+    val todayDate = remember {
+        val today = java.time.LocalDate.now()
+        val formatter = java.time.format.DateTimeFormatter.ofPattern("EEEE, dd MMMM yyyy", java.util.Locale.ENGLISH)
+        today.format(formatter)
+    }
+
+    // Fetch schedules from database
+    LaunchedEffect(user?.user_id) {
+        user?.user_id?.let { userId ->
+            Log.d("ScheduleScreen", "=== LaunchedEffect triggered for user: $userId ===")
+            isLoading = true
+            errorMessage = null
+
+            try {
+                Log.d("ScheduleScreen", "Fetching schedules for user: $userId")
+
+                // Fetch week schedules
+                Log.d("ScheduleScreen", "Calling getUserSchedules...")
+                val weekResult = scheduleApi.getUserSchedules(userId)
+                Log.d("ScheduleScreen", "getUserSchedules returned")
+
+                weekResult.fold(
+                    onSuccess = { schedules ->
+                        Log.d("ScheduleScreen", "Week schedules SUCCESS: ${schedules.size} days")
+                        weekSchedule = schedules.map { daySchedule ->
+                            DayScheduleData(
+                                dayName = daySchedule.dayName,
+                                schedules = daySchedule.schedules.map { apiSchedule ->
+                                    ScheduleItemUI(
+                                        scheduleId = apiSchedule.scheduleId,
+                                        courseId = apiSchedule.courseId,
+                                        title = apiSchedule.title,
+                                        time = apiSchedule.time,
+                                        room = apiSchedule.room
+                                    )
+                                }
+                            )
+                        }
+
+                        // Set selectedDayIndex to today's day
+                        val todayIndex = weekSchedule.indexOfFirst { it.dayName == currentDayName }
+                        if (todayIndex != -1) {
+                            selectedDayIndex = todayIndex
+                            Log.d("ScheduleScreen", "Set selectedDayIndex to today: $todayIndex ($currentDayName)")
+                        }
+
+                        Log.d("ScheduleScreen", "Week schedules mapped successfully")
+                    },
+                    onFailure = { error ->
+                        errorMessage = error.message ?: "Failed to load schedules"
+                        Log.e("ScheduleScreen", "Week schedules FAILURE: ${error.message}", error)
+                    }
+                )
+
+                // Fetch today's schedules
+                Log.d("ScheduleScreen", "Calling getTodaySchedules...")
+                val todayResult = scheduleApi.getTodaySchedules(userId)
+                Log.d("ScheduleScreen", "getTodaySchedules returned")
+
+                todayResult.fold(
+                    onSuccess = { schedules ->
+                        Log.d("ScheduleScreen", "Today schedules SUCCESS: ${schedules.size} items")
+                        todaySchedule = schedules.map { apiSchedule ->
+                            ScheduleItemUI(
+                                scheduleId = apiSchedule.scheduleId,
+                                courseId = apiSchedule.courseId,
+                                title = apiSchedule.title,
+                                time = apiSchedule.time,
+                                room = apiSchedule.room
+                            )
+                        }
+                        Log.d("ScheduleScreen", "Today schedules mapped successfully")
+                    },
+                    onFailure = { error ->
+                        Log.e("ScheduleScreen", "Today schedules FAILURE: ${error.message}", error)
+                    }
+                )
+            } catch (e: Exception) {
+                errorMessage = e.message ?: "Unknown error occurred"
+                Log.e("ScheduleScreen", "=== EXCEPTION in LaunchedEffect ===", e)
+                Log.e("ScheduleScreen", "Exception message: ${e.message}")
+            } finally {
+                isLoading = false
+                Log.d("ScheduleScreen", "=== Loading finished, isLoading set to false ===")
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -52,8 +159,6 @@ fun ScheduleScreen(
         )
 
         // Content Area - Make everything scrollable
-        // Single schedule card with navigation - move state outside LazyColumn
-        var selectedDayIndex by remember { mutableStateOf(0) }
 
         LazyColumn(
             modifier = Modifier
@@ -76,135 +181,218 @@ fun ScheduleScreen(
             }
 
             item {
-
-                // Swipe gesture detector for day navigation
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .pointerInput(selectedDayIndex) {
-                            detectHorizontalDragGestures(
-                                onDragEnd = {
-                                    // Reset drag state after gesture ends
-                                }
-                            ) { _, dragAmount ->
-                                // Swipe left (negative dragAmount) to show next day
-                                if (dragAmount < -30 && selectedDayIndex < weekSchedule.size - 1) {
-                                    selectedDayIndex++
-                                }
-                                // Swipe right (positive dragAmount) to show previous day
-                                else if (dragAmount > 30 && selectedDayIndex > 0) {
-                                    selectedDayIndex--
+                if (isLoading) {
+                    // Loading state
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(300.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            color = Color(0xFF2C2D32)
+                        )
+                    }
+                } else if (errorMessage != null) {
+                    // Error state
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(300.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = errorMessage ?: "Failed to load schedules",
+                            color = Color.Red,
+                            fontFamily = AppFontFamily,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else if (weekSchedule.isEmpty()) {
+                    // Empty state
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(300.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No schedules found",
+                            color = Color.Gray,
+                            fontFamily = AppFontFamily,
+                            fontSize = 14.sp
+                        )
+                    }
+                } else {
+                    // Swipe gesture detector for day navigation
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .pointerInput(selectedDayIndex) {
+                                detectHorizontalDragGestures(
+                                    onDragEnd = {
+                                        // Reset drag state after gesture ends
+                                    }
+                                ) { _, dragAmount ->
+                                    // Swipe left (negative dragAmount) to show next day
+                                    if (dragAmount < -30 && selectedDayIndex < weekSchedule.size - 1) {
+                                        selectedDayIndex++
+                                    }
+                                    // Swipe right (positive dragAmount) to show previous day
+                                    else if (dragAmount > 30 && selectedDayIndex > 0) {
+                                        selectedDayIndex--
+                                    }
                                 }
                             }
-                        }
-                ) {
-                    // Single day schedule card
-                    val currentDayData = weekSchedule[selectedDayIndex]
-                    val previousDayIndex = remember { mutableStateOf(selectedDayIndex) }
-
-                    AnimatedContent(
-                        targetState = selectedDayIndex,
-                        transitionSpec = {
-                            val isMovingForward = targetState > initialState
-                            slideInHorizontally(
-                                initialOffsetX = { fullWidth ->
-                                    if (isMovingForward) fullWidth else -fullWidth
-                                },
-                                animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-                            ) + fadeIn() togetherWith
-                                    slideOutHorizontally(
-                                        targetOffsetX = { fullWidth ->
-                                            if (isMovingForward) -fullWidth else fullWidth
-                                        },
-                                        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-                                    ) + fadeOut()
-                        }
-                    ) { dayIndex ->
-                        val dayData = weekSchedule[dayIndex]
-                        DayScheduleCard(
-                            dayName = dayData.dayName,
-                            schedules = dayData.schedules,
-                            isSelected = true,
-                            onCardClick = { },
-                            onSubmitAttendance = onSubmitAttendance,
-                            onScheduleItemClick = onScheduleItemClick,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-
-                    LaunchedEffect(selectedDayIndex) {
-                        previousDayIndex.value = selectedDayIndex
-                    }
-                }
-            }
-
-            item {
-                // Dots Indicator - reflects selected day (no color animation)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 24.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    repeat(5) { index ->
-                        Box(
-                            modifier = Modifier
-                                .size(if (index == selectedDayIndex) 10.dp else 8.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (index == selectedDayIndex) Color(0xFF2C2D32)
-                                    else Color.Gray.copy(alpha = 0.3f)
-                                )
-                                .clickable {
-                                    selectedDayIndex = index
-                                }
-                        )
-                        if (index < 4) {
-                            Spacer(modifier = Modifier.width(8.dp))
+                    ) {
+                        AnimatedContent(
+                            targetState = selectedDayIndex,
+                            transitionSpec = {
+                                val isMovingForward = targetState > initialState
+                                slideInHorizontally(
+                                    initialOffsetX = { fullWidth ->
+                                        if (isMovingForward) fullWidth else -fullWidth
+                                    },
+                                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+                                ) + fadeIn() togetherWith
+                                        slideOutHorizontally(
+                                            targetOffsetX = { fullWidth ->
+                                                if (isMovingForward) -fullWidth else fullWidth
+                                            },
+                                            animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+                                        ) + fadeOut()
+                            },
+                            label = "schedule_animation"
+                        ) { dayIndex ->
+                            val dayData = weekSchedule[dayIndex]
+                            DayScheduleCard(
+                                dayName = dayData.dayName,
+                                schedules = dayData.schedules,
+                                isSelected = true,
+                                onCardClick = { },
+                                onSubmitAttendance = onSubmitAttendance,
+                                onScheduleItemClick = onScheduleItemClick,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                     }
                 }
             }
 
             item {
-                // Today Section title
-                Text(
-                    text = "Today",
-                    fontFamily = AppFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 24.sp,
-                    color = Color.Black,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
+                // Dots Indicator - only show if schedules are loaded
+                if (!isLoading && weekSchedule.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        repeat(weekSchedule.size) { index ->
+                            Box(
+                                modifier = Modifier
+                                    .size(if (index == selectedDayIndex) 10.dp else 8.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (index == selectedDayIndex) Color(0xFF2C2D32)
+                                        else Color.Gray.copy(alpha = 0.3f)
+                                    )
+                                    .clickable {
+                                        selectedDayIndex = index
+                                    }
+                            )
+                            if (index < weekSchedule.size - 1) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                            }
+                        }
+                    }
+                }
             }
 
             item {
-                // Notification Banner
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2D32)),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
+                // Today Section title with date
+                Column(modifier = Modifier.padding(bottom = 16.dp)) {
                     Text(
-                        text = "The attendance submission period is 15 minutes from the start of class.",
+                        text = "Today",
                         fontFamily = AppFontFamily,
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(12.dp)
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 24.sp,
+                        color = Color.Black
+                    )
+                    Text(
+                        text = todayDate,
+                        fontFamily = AppFontFamily,
+                        fontSize = 14.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                 }
             }
 
-            // Today's Schedule items
-            items(todaySchedule) { item ->
-                TodayScheduleItem(
-                    title = item.title,
-                    time = item.time,
-                    onSubmit = onSubmitAttendance
-                ) {
-                    onScheduleItemClick(item.title, item.time)
+            item {
+                // Notification Banner - conditional based on whether there are schedules today
+                if (todaySchedule.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2D32)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = "The attendance submission period is 15 minutes from the start of class.",
+                            fontFamily = AppFontFamily,
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                } else {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F0F0)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "No Schedule Today",
+                                fontFamily = AppFontFamily,
+                                fontWeight = FontWeight.Medium,
+                                color = Color.Gray,
+                                fontSize = 14.sp,
+                                textAlign = TextAlign.Center
+                            )
+                            Text(
+                                text = "Enjoy your free time!",
+                                fontFamily = AppFontFamily,
+                                color = Color.Gray.copy(alpha = 0.7f),
+                                fontSize = 12.sp,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Today's Schedule items - only show if there are schedules
+            if (todaySchedule.isNotEmpty()) {
+                items(todaySchedule) { item ->
+                    TodayScheduleItem(
+                        title = item.title,
+                        time = item.time,
+                        onSubmit = onSubmitAttendance
+                    ) {
+                        onScheduleItemClick(item.title, item.time)
+                    }
                 }
             }
         }
@@ -215,7 +403,7 @@ fun ScheduleScreen(
 @Composable
 private fun DayScheduleCard(
     dayName: String,
-    schedules: List<ScheduleItem>,
+    schedules: List<ScheduleItemUI>,
     isSelected: Boolean,
     onCardClick: () -> Unit,
     onSubmitAttendance: () -> Unit,
@@ -348,85 +536,50 @@ private fun TodayScheduleItem(
     }
 }
 
-data class ScheduleItem(
+data class ScheduleItemUI(
+    val scheduleId: Int = 0,
+    val courseId: Int = 0,
     val title: String,
-    val time: String
-)
-private val mondaySchedule = listOf(
-    ScheduleItem(
-        title = "KECERDASAN KOMPUTASIONAL - INF 20052 KKKR",
-        time = "8:45AM - 11:25AM"
-    ),
-    ScheduleItem(
-        title = "KECERDASAN KOMPUTASIONAL Laboratory - INF 20052 KKLR",
-        time = "1:15PM - 2:55PM"
-    )
-)
-
-private val tuesdaySchedule = listOf(
-    ScheduleItem(
-        title = "PEMBELAJARAN MESIN LANJUT - INF 20151 PMLR",
-        time = "7:15AM - 9:45AM"
-    ),
-    ScheduleItem(
-        title = "PGMB. APLIKASI PLATFORM MOBILE - INF 20054 PAPR",
-        time = "10:15AM - 11:55AM"
-    ),
-    ScheduleItem(
-        title = "PGMB. APLIKASI PLATFORM MOBILE Laboratory - INF 20054 PALR",
-        time = "1:15PM - 2:55PM"
-    )
-)
-
-private val wednesdaySchedule = listOf(
-    ScheduleItem(
-        title = "INFORMATIKA DALAM KOM SELULER - INF 20262 IKSR",
-        time = "1:15PM - 3:45PM"
-    )
-)
-
-private val thursdaySchedule = listOf(
-    ScheduleItem(
-        title = "PERANCANGAN & PEMROGRAMAN WEB - INF 20053 PWR",
-        time = "7:15AM - 9:45AM"
-    ),
-    ScheduleItem(
-        title = "PERANCANGAN & PEMROGRAMAN WEB Laboratory - INF 20053 PPLR",
-        time = "10:00AM - 11:40AM"
-    )
-)
-
-private val fridaySchedule = listOf(
-    ScheduleItem(
-        title = "KEAMANAN KOMPUTER & JARINGAN - INF 20051 KKJR",
-        time = "7:15AM - 9:45AM"
-    ),
-    ScheduleItem(
-        title = "KEAMANAN KOMPUTER & JARINGAN Laboratory - INF 20051 KKLR",
-        time = "10:00AM - 11:40AM"
-    )
-)
-
-private val todaySchedule = fridaySchedule // contoh kalau hari ini Jumat
-
-
-private val weekSchedule = listOf(
-    DayScheduleData("Monday", mondaySchedule),
-    DayScheduleData("Tuesday", tuesdaySchedule),
-    DayScheduleData("Wednesday", wednesdaySchedule),
-    DayScheduleData("Thursday", thursdaySchedule),
-    DayScheduleData("Friday", fridaySchedule)
+    val time: String,
+    val room: String? = null
 )
 
 data class DayScheduleData(
     val dayName: String,
-    val schedules: List<ScheduleItem>
+    val schedules: List<ScheduleItemUI>
 )
+
+// Helper functions for current day
+private fun getCurrentDayName(): String {
+    val dayOfWeek = java.time.LocalDate.now().dayOfWeek
+    return when (dayOfWeek) {
+        java.time.DayOfWeek.MONDAY -> "Monday"
+        java.time.DayOfWeek.TUESDAY -> "Tuesday"
+        java.time.DayOfWeek.WEDNESDAY -> "Wednesday"
+        java.time.DayOfWeek.THURSDAY -> "Thursday"
+        java.time.DayOfWeek.FRIDAY -> "Friday"
+        java.time.DayOfWeek.SATURDAY -> "Monday" // Default to Monday for weekend
+        java.time.DayOfWeek.SUNDAY -> "Monday" // Default to Monday for weekend
+    }
+}
+
+private fun getCurrentDayIndex(): Int {
+    val dayOfWeek = java.time.LocalDate.now().dayOfWeek
+    return when (dayOfWeek) {
+        java.time.DayOfWeek.MONDAY -> 0
+        java.time.DayOfWeek.TUESDAY -> 1
+        java.time.DayOfWeek.WEDNESDAY -> 2
+        java.time.DayOfWeek.THURSDAY -> 3
+        java.time.DayOfWeek.FRIDAY -> 4
+        else -> 0 // Default to Monday (index 0) for weekend
+    }
+}
 
 @Preview
 @Composable
 fun ScheduleScreenPreview() {
     ScheduleScreen(
+        user = null,
         onNavigateBack = {},
         onNavigate = {},
         onSubmitAttendance = {}
