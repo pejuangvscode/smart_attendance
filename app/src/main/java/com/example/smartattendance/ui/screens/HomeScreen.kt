@@ -40,6 +40,10 @@ import kotlin.math.abs
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
 import android.util.Log
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.compose.ui.platform.LocalView
+import android.app.Activity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,6 +59,16 @@ fun HomeScreen(
     val darkGray = Color(0xFF2C2D32)
     val redColor = Color(0xFFE0697E)
     val coroutineScope = rememberCoroutineScope()
+
+    // Set status bar color to match header
+    val view = LocalView.current
+    val window = (view.context as? Activity)?.window
+    window?.let {
+        WindowCompat.setDecorFitsSystemWindows(it, false)
+        val controller = WindowInsetsControllerCompat(it, view)
+        controller.isAppearanceLightStatusBars = true // Light icons on dark background
+        it.statusBarColor = 0xFF2C2D32.toInt()
+    }
 
     // State untuk statistik presensi
     var attendanceStatistics by remember { mutableStateOf(AttendanceStatistics.empty()) }
@@ -153,7 +167,7 @@ fun HomeScreen(
             ) {
                 Column {
                     Text(
-                        text = "Hello, ${user?.full_name ?: "User"}!",
+                        text = "Hello, ${user?.full_name?.split(" ")?.firstOrNull() ?: "User"}!",
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White

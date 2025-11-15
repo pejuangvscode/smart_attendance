@@ -93,7 +93,7 @@ private fun HomeHeader(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ExitToApp,
                 contentDescription = "Logout",
-                tint = Color.White,
+                tint = Color(0xFFFFFFFF),
                 modifier = Modifier.size(40.dp)
             )
         }
@@ -118,7 +118,7 @@ private fun StandardHeader(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Back",
-                tint = Color.White,
+                tint = Color(0xFFFFFFFF),
                 modifier = Modifier.size(35.dp)
             )
         }
@@ -127,7 +127,7 @@ private fun StandardHeader(
             Icon(
                 imageVector = iconRes,
                 contentDescription = null,
-                tint = Color.White,
+                tint = Color(0xFFFFFFFF),
                 modifier = Modifier
                     .size(35.dp)
                     .padding(start = 8.dp, end = 17.dp)
@@ -167,7 +167,7 @@ private fun HeaderWithAction(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Back",
-                tint = Color.White,
+                tint = Color(0xFFFFFFFF),
                 modifier = Modifier.size(35.dp)
             )
         }
@@ -176,7 +176,7 @@ private fun HeaderWithAction(
             Icon(
                 imageVector = iconRes,
                 contentDescription = null,
-                tint = Color.White,
+                tint = Color(0xFFFFFFFF),
                 modifier = Modifier
                     .size(35.dp)
                     .padding(start = 8.dp, end = 17.dp)
@@ -194,7 +194,7 @@ private fun HeaderWithAction(
             Icon(
                 imageVector = actionIcon,
                 contentDescription = "Action",
-                tint = Color.White,
+                tint = Color(0xFFFFFFFF),
                 modifier = Modifier.size(35.dp)
             )
         }

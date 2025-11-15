@@ -21,6 +21,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import android.app.Activity
+import android.util.Log
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -34,11 +39,10 @@ import com.example.smartattendance.ui.components.HeaderType
 import com.example.smartattendance.ui.theme.AppFontFamily
 import com.example.smartattendance.utils.SessionManager
 import kotlinx.coroutines.launch
-import android.util.Log
 import kotlin.math.abs
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun ScheduleScreen(
     user: AuthApi.User?,
     onNavigateBack: () -> Unit,
@@ -46,6 +50,20 @@ fun ScheduleScreen(
     onSubmitAttendance: () -> Unit = {},
     onScheduleItemClick: (String, String) -> Unit = { _, _ -> }
 ) {
+    val darkGray = Color(0xFF2C2D32)
+
+    // Set status bar color to match header
+    val view = LocalView.current
+    LaunchedEffect(Unit) {
+        val window = (view.context as? Activity)?.window
+        window?.let {
+            WindowCompat.setDecorFitsSystemWindows(it, false)
+            val controller = WindowInsetsControllerCompat(it, view)
+            controller.isAppearanceLightStatusBars = false // White icons on dark background
+            it.statusBarColor = 0xFF2C2D32.toInt()
+        }
+    }
+
     // State for schedules
     var weekSchedule by remember { mutableStateOf<List<DayScheduleData>>(emptyList()) }
     var todaySchedule by remember { mutableStateOf<List<ScheduleItemUI>>(emptyList()) }

@@ -1,6 +1,7 @@
 package com.example.smartattendance.ui.screens
 
 import android.util.Log
+import android.app.Activity
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,11 +19,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.example.smartattendance.api.AuthApi
 import com.example.smartattendance.api.HistoryApi
 import com.example.smartattendance.api.HistoryGroupedItem
@@ -45,6 +49,18 @@ fun HistoryScreen(
     var attendanceItems by remember { mutableStateOf<List<HistoryGroupedItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    // Set status bar color to match header
+    val view = LocalView.current
+    LaunchedEffect(Unit) {
+        val window = (view.context as? Activity)?.window
+        window?.let {
+            WindowCompat.setDecorFitsSystemWindows(it, false)
+            val controller = WindowInsetsControllerCompat(it, view)
+            controller.isAppearanceLightStatusBars = false // White icons on dark background
+            it.statusBarColor = 0xFF2C2D32.toInt()
+        }
+    }
 
     // Load data when screen is first composed - similar to HomeScreen pattern
     LaunchedEffect(Unit) {
