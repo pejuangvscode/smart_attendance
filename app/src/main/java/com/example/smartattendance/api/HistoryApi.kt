@@ -53,7 +53,16 @@ data class HistoryGroupedItem(
 data class HistoryItemDetail(
     val title: String,
     val subtitle: String,
-    val status: String
+    val status: String,
+    val courseCode: String,
+    val courseName: String,
+    val lecturerId: String,
+    val room: String?,
+    val day: String,
+    val startTime: String,
+    val endTime: String,
+    val attendanceDate: String,
+    val recordedAt: String
 )
 
 object HistoryApi {
@@ -128,7 +137,16 @@ object HistoryApi {
                     HistoryItemDetail(
                         title = course.courseName,
                         subtitle = formatTime(schedule.startTime, schedule.endTime),
-                        status = formatStatus(attendance.status)
+                        status = formatStatus(attendance.status),
+                        courseCode = course.courseCode,
+                        courseName = course.courseName,
+                        lecturerId = course.lecturerId,
+                        room = schedule.room,
+                        day = schedule.day,
+                        startTime = schedule.startTime,
+                        endTime = schedule.endTime,
+                        attendanceDate = attendance.attendanceDate,
+                        recordedAt = attendance.recordedAt
                     ) to attendance.attendanceDate
                 } else {
                     null

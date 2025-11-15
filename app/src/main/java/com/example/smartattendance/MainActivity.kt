@@ -39,6 +39,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.smartattendance.api.AuthApi
 import com.example.smartattendance.ui.components.AppBottomNavigation
+import com.example.smartattendance.ui.screens.AttendanceDetailScreen
 import com.example.smartattendance.ui.screens.AttendanceScreen
 import com.example.smartattendance.ui.screens.CameraScreen
 import com.example.smartattendance.ui.screens.HistoryScreen
@@ -86,6 +87,14 @@ fun AppNavigation() {
     var isLateAttendance by remember { mutableStateOf(false) }
     var selectedClassName by remember { mutableStateOf("") }
     var selectedStatus by remember { mutableStateOf("") }
+    var selectedCourseCode by remember { mutableStateOf("") }
+    var selectedLecturerId by remember { mutableStateOf("") }
+    var selectedRoom by remember { mutableStateOf("") }
+    var selectedDay by remember { mutableStateOf("") }
+    var selectedStartTime by remember { mutableStateOf("") }
+    var selectedEndTime by remember { mutableStateOf("") }
+    var selectedAttendanceDate by remember { mutableStateOf("") }
+    var selectedRecordedAt by remember { mutableStateOf("") }
 
     // State to hold the current user
     var user by remember { mutableStateOf<AuthApi.User?>(null) }
@@ -281,9 +290,17 @@ fun AppNavigation() {
                     onBackClick = {
                         navController.popBackStack()
                     },
-                    onCardClick = { className, status ->
+                    onNavigateToDetail = { className, status, courseCode, lecturerId, room, day, startTime, endTime, attendanceDate, recordedAt ->
                         selectedClassName = className
                         selectedStatus = status
+                        selectedCourseCode = courseCode
+                        selectedLecturerId = lecturerId
+                        selectedRoom = room
+                        selectedDay = day
+                        selectedStartTime = startTime
+                        selectedEndTime = endTime
+                        selectedAttendanceDate = attendanceDate
+                        selectedRecordedAt = recordedAt
                         navController.navigate("attendance_detail")
                     },
                     onNavigateToSchedule = {
@@ -292,6 +309,24 @@ fun AppNavigation() {
                             launchSingleTop = true
                             restoreState = true
                         }
+                    }
+                )
+            }
+
+            composable("attendance_detail") {
+                AttendanceDetailScreen(
+                    className = selectedClassName,
+                    status = selectedStatus,
+                    courseCode = selectedCourseCode,
+                    lecturerId = selectedLecturerId,
+                    room = selectedRoom,
+                    day = selectedDay,
+                    startTime = selectedStartTime,
+                    endTime = selectedEndTime,
+                    attendanceDate = selectedAttendanceDate,
+                    recordedAt = selectedRecordedAt,
+                    onBackClick = {
+                        navController.popBackStack()
                     }
                 )
             }

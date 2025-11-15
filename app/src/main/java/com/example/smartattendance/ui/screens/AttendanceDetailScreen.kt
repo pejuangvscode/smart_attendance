@@ -38,11 +38,56 @@ import java.util.*
 fun AttendanceDetailScreen(
     className: String,
     status: String,
+    courseCode: String = "",
+    lecturerId: String = "",
+    room: String = "",
+    day: String = "",
+    startTime: String = "",
+    endTime: String = "",
+    attendanceDate: String = "",
+    recordedAt: String = "",
     onBackClick: () -> Unit = {},
     onNavigate: (String) -> Unit = {}
 ) {
-    val currentTime = remember {
-        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+    // Format time from recordedAt for submit time
+    val submitTime = remember {
+        try {
+            val inputFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+            val outputFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+            val date = inputFormat.parse(recordedAt)
+            if (date != null) outputFormat.format(date) else "N/A"
+        } catch (e: Exception) {
+            "N/A"
+        }
+    }
+
+    // Format date for display
+    val formattedDate = remember {
+        try {
+            val inputFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val outputFormat = SimpleDateFormat("dd MMMM yyyy", Locale.ENGLISH)
+            val date = inputFormat.parse(attendanceDate)
+            if (date != null) outputFormat.format(date).uppercase() else attendanceDate
+        } catch (e: Exception) {
+            attendanceDate
+        }
+    }
+
+    // Format schedule time for display
+    val formattedSchedule = remember {
+        try {
+            val inputFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+            val outputFormat = SimpleDateFormat("h:mma", Locale.getDefault())
+            val start = inputFormat.parse(startTime)
+            val end = inputFormat.parse(endTime)
+            if (start != null && end != null) {
+                "${outputFormat.format(start)} - ${outputFormat.format(end)}"
+            } else {
+                "$startTime - $endTime"
+            }
+        } catch (e: Exception) {
+            "$startTime - $endTime"
+        }
     }
 
     // Set status bar color to match header
@@ -51,6 +96,7 @@ fun AttendanceDetailScreen(
         val activity = view.context as ComponentActivity
         WindowCompat.setDecorFitsSystemWindows(activity.window, false)
         WindowCompat.getInsetsController(activity.window, view)?.let { controller ->
+            controller.isAppearanceLightStatusBars = false
             activity.window.statusBarColor = android.graphics.Color.parseColor("#FF2C2D32")
         }
     }
@@ -152,10 +198,11 @@ fun AttendanceDetailScreen(
                                 .padding(top = 4.dp, bottom = 22.dp)
                         ) {
                             DetailRow("Class", className)
-                            DetailRow("Instructor", "KELVIN WIRIYATAMA")
-                            DetailRow("Room", "B342")
-                            DetailRow("Date", "25 SEPTEMBER 2025")
-                            DetailRow("Submit time", currentTime)
+                            DetailRow("Course Code", courseCode)
+                            DetailRow("Instructor", lecturerId)
+                            DetailRow("Room", room.ifEmpty { "N/A" })
+                            DetailRow("Date", formattedDate)
+                            DetailRow("Submit time", submitTime)
                             DetailRow("Status", status.uppercase(), isStatus = true, statusColor = statusColor, isLast = true)
                         }
                     }
@@ -188,8 +235,8 @@ fun AttendanceDetailScreen(
                                 .padding(horizontal = 16.dp)
                                 .fillMaxWidth()
                         ) {
-                            DetailRow("Day", "Thursday", hasBottomPadding = true)
-                            DetailRow("Schedule", "10:00AM - 11:40AM", isLast = true)
+                            DetailRow("Day", day, hasBottomPadding = true)
+                            DetailRow("Schedule", formattedSchedule, isLast = true)
                         }
                     }
                 }

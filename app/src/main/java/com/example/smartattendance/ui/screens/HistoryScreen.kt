@@ -40,7 +40,18 @@ import kotlinx.coroutines.launch
 @Composable
 fun HistoryScreen(
     onBackClick: () -> Unit = {},
-    onCardClick: (String, String) -> Unit = { _, _ -> },
+    onNavigateToDetail: (
+        className: String,
+        status: String,
+        courseCode: String,
+        lecturerId: String,
+        room: String,
+        day: String,
+        startTime: String,
+        endTime: String,
+        attendanceDate: String,
+        recordedAt: String
+    ) -> Unit = { _, _, _, _, _, _, _, _, _, _ -> },
     onNavigateToSchedule: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -205,7 +216,18 @@ fun HistoryScreen(
                                     subtitle = item.subtitle,
                                     status = item.status,
                                     onClick = {
-                                        onCardClick(item.title, item.status)
+                                        onNavigateToDetail(
+                                            item.courseName,
+                                            item.status,
+                                            item.courseCode,
+                                            item.lecturerId,
+                                            item.room ?: "",
+                                            item.day,
+                                            item.startTime,
+                                            item.endTime,
+                                            item.attendanceDate,
+                                            item.recordedAt
+                                        )
                                     }
                                 )
                             }
