@@ -24,7 +24,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,6 +45,7 @@ import com.example.smartattendance.ui.screens.HistoryScreen
 import com.example.smartattendance.ui.screens.HomeScreen
 import com.example.smartattendance.ui.screens.ListScreen
 import com.example.smartattendance.ui.screens.LoginScreen
+import com.example.smartattendance.ui.screens.RequestPermissionScreen
 import com.example.smartattendance.ui.screens.ScheduleScreen
 import com.example.smartattendance.ui.screens.SignUpScreen
 import com.example.smartattendance.ui.screens.SubmissionCompleteScreen
@@ -399,6 +399,35 @@ fun AppNavigation() {
                         navController.navigate("home") {
                             popUpTo("home") { inclusive = true }
                             launchSingleTop = true
+                        }
+                    }
+                )
+            }
+
+            composable("request_permission") {
+                RequestPermissionScreen(
+                    onBackClick = {
+                        navController.popBackStack()
+                    },
+                    onCreateRequest = {
+                        // TODO: Navigate to create permission request screen
+                        navController.navigate("create_permission_request")
+                    },
+                    onNavigate = { route ->
+                        when (route) {
+                            "home" -> {
+                                navController.navigate("home") {
+                                    popUpTo("home") { inclusive = true }
+                                    launchSingleTop = true
+                                }
+                            }
+                            else -> {
+                                navController.navigate(route) {
+                                    popUpTo("home") { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
                         }
                     }
                 )

@@ -29,12 +29,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.smartattendance.api.AuthApi
 import com.example.smartattendance.api.StatisticsApi
+import com.example.smartattendance.api.ScheduleApi
 import com.example.smartattendance.data.AttendanceStatistics
+import java.time.LocalTime
 import com.example.smartattendance.ui.theme.SmartAttendanceTheme
 import com.example.smartattendance.utils.SessionManager
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.time.DayOfWeek
 import java.util.Locale
 import kotlin.math.abs
 import kotlinx.coroutines.launch
@@ -79,14 +80,20 @@ fun HomeScreen(
     var weeklyStatus by remember { mutableStateOf<Map<String, String?>>(emptyMap()) }
     var isLoadingWeekly by remember { mutableStateOf(false) }
 
-    // Initialize StatisticsApi
+    // State untuk current schedule
+    var currentSchedule by remember { mutableStateOf<CurrentScheduleInfo?>(null) }
+    var isLoadingSchedule by remember { mutableStateOf(false) }
+
+    // Initialize StatisticsApi and ScheduleApi
     val statisticsApi = remember { StatisticsApi(AuthApi.supabase) }
+    val scheduleApi = remember { ScheduleApi(AuthApi.supabase) }
 
     // Fetch statistics saat pertama kali load
     LaunchedEffect(user?.user_id) {
         user?.user_id?.let { userId ->
             isLoadingStatistics = true
             isLoadingWeekly = true
+            isLoadingSchedule = true
             statisticsError = null
 
             try {
@@ -114,12 +121,27 @@ fun HomeScreen(
                         Log.e("HomeScreen", "Error loading weekly status", error)
                     }
                 )
+
+                // Fetch today's schedules
+                val todayResult = scheduleApi.getTodaySchedules(userId)
+                todayResult.fold(
+                    onSuccess = { schedules ->
+                        Log.d("HomeScreen", "Today schedules loaded: ${schedules.size} items")
+                        // Determine current or next class
+                        currentSchedule = determineCurrentSchedule(schedules)
+                        Log.d("HomeScreen", "Current schedule: $currentSchedule")
+                    },
+                    onFailure = { error ->
+                        Log.e("HomeScreen", "Error loading today schedules", error)
+                    }
+                )
             } catch (e: Exception) {
                 statisticsError = e.message ?: "Unknown error occurred"
                 Log.e("HomeScreen", "Exception loading statistics", e)
             } finally {
                 isLoadingStatistics = false
                 isLoadingWeekly = false
+                isLoadingSchedule = false
             }
         }
     }
@@ -202,45 +224,98 @@ fun HomeScreen(
                     .fillMaxSize()
                     .padding(horizontal = 25.dp)
             ) {
-                // Take attendance card
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                // Take attendance card - dynamic based on schedule
+                if (isLoadingSchedule) {
+                    // Loading state
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Outlined.CalendarToday,
-                            contentDescription = "Calendar",
-                            tint = Color.Black,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column(
-                            modifier = Modifier.weight(0.8f)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = "KEAMANAN KOMPUTER & JARINGAN",
-                                fontSize = 14.sp,
-                                color = Color.Black,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 2
+                            CircularProgressIndicator(
+                                color = darkGray,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Button(
-                            onClick = onSubmitAttendance,
-                            colors = ButtonDefaults.buttonColors(containerColor = redColor),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.height(32.dp)
+                    }
+                } else {
+                    // Show current or upcoming schedule
+                    currentSchedule?.let { schedule ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                         ) {
-                            Text("Submit", fontSize = 14.sp, color = Color.White)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.CalendarToday,
+                                    contentDescription = "Calendar",
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column(
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        text = schedule.courseName.uppercase(),
+                                        fontSize = 14.sp,
+                                        color = Color.Black,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 2
+                                    )
+                                    Text(
+                                        text = schedule.time,
+                                        fontSize = 12.sp,
+                                        color = Color.Gray,
+                                        modifier = Modifier.padding(top = 2.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                if (schedule.isActive) {
+                                    // Show Submit button for active class
+                                    Button(
+                                        onClick = onSubmitAttendance,
+                                        colors = ButtonDefaults.buttonColors(containerColor = redColor),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.height(32.dp)
+                                    ) {
+                                        Text("Submit", fontSize = 14.sp, color = Color.White)
+                                    }
+                                } else {
+                                    // Show "Not Yet" indicator for upcoming class
+                                    Surface(
+                                        color = Color(0xFFE0E0E0),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.height(32.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.padding(horizontal = 12.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "Not Yet",
+                                                fontSize = 14.sp,
+                                                color = Color.Gray,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -577,3 +652,129 @@ fun HomeScreenPreview() {
         HomeScreen(user = AuthApi.User(full_name = "Teo", email = "", password_hash = ""), sessionManager = SessionManager(LocalContext.current))
     }
 }
+
+// Data class for current schedule info
+data class CurrentScheduleInfo(
+    val courseName: String,
+    val time: String,
+    val isActive: Boolean  // true if class is currently in session (within 15 min window)
+)
+
+// Local data class to match ScheduleApi.ScheduleItem structure
+private data class ScheduleItemData(
+    val title: String,
+    val time: String
+)
+
+// Helper function to determine current or next schedule
+private fun determineCurrentSchedule(schedules: List<Any>): CurrentScheduleInfo? {
+    if (schedules.isEmpty()) return null
+
+    val now = LocalTime.now()
+    val formatter = DateTimeFormatter.ofPattern("HH:mm:ss")
+
+    // Find if there's a class currently active (within 15 minutes of start time)
+    for (schedule in schedules) {
+        try {
+            // Access properties using reflection
+            val titleField = schedule::class.java.getDeclaredField("title")
+            val timeField = schedule::class.java.getDeclaredField("time")
+            titleField.isAccessible = true
+            timeField.isAccessible = true
+
+            val title = titleField.get(schedule) as String
+            val time = timeField.get(schedule) as String
+
+            // Extract course name from title (format: "Course Name - CODE - ROOM")
+            val courseName = title.split(" - ").getOrNull(0) ?: title
+            val timeRange = time.split(" - ")
+            if (timeRange.size != 2) continue
+
+            val startTimeStr = convertTo24Hour(timeRange[0].trim())
+            val endTimeStr = convertTo24Hour(timeRange[1].trim())
+
+            val startTime = LocalTime.parse(startTimeStr, formatter)
+            val endTime = LocalTime.parse(endTimeStr, formatter)
+
+            // Check if class is in progress or within 15 minutes before start
+            val fifteenMinutesBefore = startTime.minusMinutes(15)
+
+            if (now.isAfter(fifteenMinutesBefore) && now.isBefore(endTime)) {
+                // Class is active or about to start
+                return CurrentScheduleInfo(
+                    courseName = courseName,
+                    time = time,
+                    isActive = true
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("HomeScreen", "Error parsing schedule", e)
+        }
+    }
+
+    // No active class, find the next upcoming class
+    for (schedule in schedules) {
+        try {
+            val titleField = schedule::class.java.getDeclaredField("title")
+            val timeField = schedule::class.java.getDeclaredField("time")
+            titleField.isAccessible = true
+            timeField.isAccessible = true
+
+            val title = titleField.get(schedule) as String
+            val time = timeField.get(schedule) as String
+
+            val courseName = title.split(" - ").getOrNull(0) ?: title
+            val timeRange = time.split(" - ")
+            if (timeRange.size != 2) continue
+
+            val startTimeStr = convertTo24Hour(timeRange[0].trim())
+            val startTime = LocalTime.parse(startTimeStr, formatter)
+
+            if (now.isBefore(startTime)) {
+                // This is the next class
+                return CurrentScheduleInfo(
+                    courseName = courseName,
+                    time = time,
+                    isActive = false
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("HomeScreen", "Error parsing schedule", e)
+        }
+    }
+
+    // All classes have passed for today
+    return null
+}
+
+// Helper function to convert 12-hour format to 24-hour format
+private fun convertTo24Hour(time12h: String): String {
+    return try {
+        val parts = time12h.split(" ")
+        if (parts.size != 2) return "00:00:00"
+
+        val timePart = parts[0]
+        val period = parts[1].uppercase()
+
+        val timeParts = timePart.split(":")
+        if (timeParts.size != 2) return "00:00:00"
+
+        var hour = timeParts[0].toInt()
+        val minute = timeParts[1]
+
+        // Convert to 24-hour format
+        if (period == "PM" && hour != 12) {
+            hour += 12
+        } else if (period == "AM" && hour == 12) {
+            hour = 0
+        }
+
+        String.format("%02d:%s:00", hour, minute)
+    } catch (e: Exception) {
+        Log.e("HomeScreen", "Error converting time: $time12h", e)
+        "00:00:00"
+    }
+}
+
+
+
