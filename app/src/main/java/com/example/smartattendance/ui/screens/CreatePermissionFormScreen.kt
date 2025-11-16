@@ -1,7 +1,6 @@
 package com.example.smartattendance.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -21,13 +20,19 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.smartattendance.api.AuthApi
+import com.example.smartattendance.api.ScheduleApi
+import com.example.smartattendance.api.ScheduleItem
+import com.example.smartattendance.api.PermissionApi
 import com.example.smartattendance.ui.components.AppHeader
 import com.example.smartattendance.ui.components.HeaderType
 import com.example.smartattendance.ui.theme.AppFontFamily
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreatePermissionFormScreen(
+    user: AuthApi.User? = null,
     onBackClick: () -> Unit = {},
     onSubmit: () -> Unit = {}
 ) {
@@ -46,18 +51,97 @@ fun CreatePermissionFormScreen(
     var showDateDropdown by remember { mutableStateOf(false) }
     var showReasonDropdown by remember { mutableStateOf(false) }
 
-    val classes = listOf(
-        "KECERDASAN KOMPUTASIONAL",
-        "KEAMANAN KOMPUTER & JARINGAN",
-        "PERANCANGAN & PEMROGRAMAN WEB",
-        "ALGORITMA & STRUKTUR DATA",
-        "MANAJEMEN BASIS DATA",
-        "INFORMATIKA DALAM KOM SELULER",
-        "PGMB. APLIKASI PLATFORM MOBILE",
-        "PEMBELAJARAN MESIN LANJUT"
-    )
+    var schedules by remember { mutableStateOf<List<ScheduleItem>>(emptyList()) }
+    var classes by remember { mutableStateOf<List<String>>(emptyList()) }
+    var scheduleDataMap by remember { mutableStateOf<Map<String, Pair<ScheduleItem, String>>>(emptyMap()) }
+    var availableDates by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    var isSubmitting by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val coroutineScope = rememberCoroutineScope()
 
     val reasons = listOf("Sick", "Family Emergency", "Medical Appointment", "Personal Matter", "Other")
+
+    // Function to generate dates for a specific day of the week
+    fun generateDatesForDay(dayName: String): List<String> {
+        val calendar = java.util.Calendar.getInstance()
+        val targetDayOfWeek = when (dayName) {
+            "Monday" -> java.util.Calendar.MONDAY
+            "Tuesday" -> java.util.Calendar.TUESDAY
+            "Wednesday" -> java.util.Calendar.WEDNESDAY
+            "Thursday" -> java.util.Calendar.THURSDAY
+            "Friday" -> java.util.Calendar.FRIDAY
+            else -> java.util.Calendar.MONDAY
+        }
+
+        val dates = mutableListOf<String>()
+        val dateFormat = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
+
+        // Find next occurrence of the target day
+        var daysToAdd = (targetDayOfWeek - calendar.get(java.util.Calendar.DAY_OF_WEEK) + 7) % 7
+        if (daysToAdd == 0) daysToAdd = 7 // If today is the target day, start from next week
+
+        // Generate 4 future dates
+        for (i in 0 until 4) {
+            calendar.add(java.util.Calendar.DAY_OF_YEAR, daysToAdd)
+            dates.add(dateFormat.format(calendar.time))
+            daysToAdd = 7 // Next occurrence is 1 week later
+        }
+
+        return dates
+    }
+
+    // Set user data
+    LaunchedEffect(user) {
+        fullName = user?.full_name ?: ""
+        nim = user?.nim ?: ""
+    }
+
+    // Fetch schedules
+    LaunchedEffect(user?.user_id) {
+        user?.user_id?.let { userId ->
+            val scheduleApi = ScheduleApi(AuthApi.supabase)
+            val result = scheduleApi.getUserSchedules(userId)
+            if (result.isSuccess) {
+                val daySchedules = result.getOrNull() ?: emptyList()
+                // Create a map of class title to (ScheduleItem, day)
+                val tempMap = mutableMapOf<String, Pair<ScheduleItem, String>>()
+                daySchedules.forEach { daySchedule ->
+                    daySchedule.schedules.forEach { scheduleItem ->
+                        tempMap[scheduleItem.title] = Pair(scheduleItem, daySchedule.dayName)
+                    }
+                }
+                scheduleDataMap = tempMap
+                schedules = daySchedules.flatMap { it.schedules }
+                classes = schedules.map { it.title }.distinct()
+            }
+        }
+    }
+
+    // Set times and dates when class is selected
+    LaunchedEffect(selectedClass) {
+        if (selectedClass.isNotEmpty()) {
+            val scheduleData = scheduleDataMap[selectedClass]
+            scheduleData?.let { (scheduleItem, dayName) ->
+                // Set times
+                val timeParts = scheduleItem.time.split(" - ")
+                if (timeParts.size == 2) {
+                    val startParts = timeParts[0].trim().split(":")
+                    startHour = startParts.getOrNull(0) ?: ""
+                    startMinute = startParts.getOrNull(1) ?: ""
+                    val endParts = timeParts[1].trim().split(":")
+                    endHour = endParts.getOrNull(0) ?: ""
+                    endMinute = endParts.getOrNull(1) ?: ""
+                }
+
+                // Generate dates for the next 4 occurrences of this day
+                availableDates = generateDatesForDay(dayName)
+            }
+        } else {
+            availableDates = emptyList()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -105,8 +189,9 @@ fun CreatePermissionFormScreen(
                     )
                     OutlinedTextField(
                         value = fullName,
-                        onValueChange = { fullName = it },
+                        onValueChange = { },
                         placeholder = { Text("Full Name", color = Color.Gray) },
+                        readOnly = true,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 16.dp),
@@ -126,8 +211,9 @@ fun CreatePermissionFormScreen(
                     )
                     OutlinedTextField(
                         value = nim,
-                        onValueChange = { nim = it },
+                        onValueChange = { },
                         placeholder = { Text("NIM", color = Color.Gray) },
+                        readOnly = true,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 16.dp),
@@ -203,8 +289,9 @@ fun CreatePermissionFormScreen(
                             Row {
                                 OutlinedTextField(
                                     value = startHour,
-                                    onValueChange = { if (it.length <= 2) startHour = it },
+                                    onValueChange = { },
                                     placeholder = { Text("HH", color = Color.Gray) },
+                                    readOnly = true,
                                     modifier = Modifier
                                         .weight(1f)
                                         .padding(end = 4.dp),
@@ -216,8 +303,9 @@ fun CreatePermissionFormScreen(
                                 )
                                 OutlinedTextField(
                                     value = startMinute,
-                                    onValueChange = { if (it.length <= 2) startMinute = it },
+                                    onValueChange = { },
                                     placeholder = { Text("MM", color = Color.Gray) },
+                                    readOnly = true,
                                     modifier = Modifier.weight(1f),
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     colors = OutlinedTextFieldDefaults.colors(
@@ -242,8 +330,9 @@ fun CreatePermissionFormScreen(
                             Row {
                                 OutlinedTextField(
                                     value = endHour,
-                                    onValueChange = { if (it.length <= 2) endHour = it },
+                                    onValueChange = { },
                                     placeholder = { Text("HH", color = Color.Gray) },
+                                    readOnly = true,
                                     modifier = Modifier
                                         .weight(1f)
                                         .padding(end = 4.dp),
@@ -255,8 +344,9 @@ fun CreatePermissionFormScreen(
                                 )
                                 OutlinedTextField(
                                     value = endMinute,
-                                    onValueChange = { if (it.length <= 2) endMinute = it },
+                                    onValueChange = { },
                                     placeholder = { Text("MM", color = Color.Gray) },
+                                    readOnly = true,
                                     modifier = Modifier.weight(1f),
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     colors = OutlinedTextFieldDefaults.colors(
@@ -312,19 +402,21 @@ fun CreatePermissionFormScreen(
                                     expanded = showDateDropdown,
                                     onDismissRequest = { showDateDropdown = false }
                                 ) {
-                                    // Sample dates
-                                    listOf(
-                                        "06/10/2025",
-                                        "07/10/2025",
-                                        "08/10/2025"
-                                    ).forEach { date ->
+                                    if (availableDates.isEmpty()) {
                                         DropdownMenuItem(
-                                            text = { Text(date) },
-                                            onClick = {
-                                                selectedDate = date
-                                                showDateDropdown = false
-                                            }
+                                            text = { Text("Please select a class first", color = Color.Gray) },
+                                            onClick = { }
                                         )
+                                    } else {
+                                        availableDates.forEach { date ->
+                                            DropdownMenuItem(
+                                                text = { Text(date) },
+                                                onClick = {
+                                                    selectedDate = date
+                                                    showDateDropdown = false
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -446,9 +538,75 @@ fun CreatePermissionFormScreen(
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
+
+                    // Error message
+                    errorMessage?.let { error ->
+                        Text(
+                            text = error,
+                            color = Color.Red,
+                            fontSize = 14.sp,
+                            fontFamily = AppFontFamily,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+                    }
+
                     // Submit Button
                     Button(
-                        onClick = onSubmit,
+                        onClick = {
+                            // Validate fields
+                            when {
+                                selectedClass.isEmpty() -> {
+                                    errorMessage = "Please select a class"
+                                }
+                                selectedDate.isEmpty() -> {
+                                    errorMessage = "Please select a date"
+                                }
+                                selectedReason.isEmpty() -> {
+                                    errorMessage = "Please select a reason"
+                                }
+                                description.isEmpty() -> {
+                                    errorMessage = "Please provide a description"
+                                }
+                                else -> {
+                                    // All fields valid, submit
+                                    errorMessage = null
+                                    isSubmitting = true
+
+                                    coroutineScope.launch {
+                                        try {
+                                            val permissionApi = PermissionApi(AuthApi.supabase)
+                                            val startTimeFormatted = "$startHour:$startMinute"
+                                            val endTimeFormatted = "$endHour:$endMinute"
+
+                                            val result = permissionApi.createPermission(
+                                                userId = user?.user_id ?: "",
+                                                courseName = selectedClass,
+                                                permissionDate = selectedDate,
+                                                startTime = startTimeFormatted,
+                                                endTime = endTimeFormatted,
+                                                reason = selectedReason,
+                                                description = description,
+                                                schedules = scheduleDataMap
+                                            )
+
+                                            isSubmitting = false
+
+                                            if (result.isSuccess) {
+                                                // Success - navigate back
+                                                onSubmit()
+                                            } else {
+                                                errorMessage = result.exceptionOrNull()?.message
+                                                    ?: "Failed to submit permission request"
+                                            }
+                                        } catch (e: Exception) {
+                                            isSubmitting = false
+                                            errorMessage = e.message ?: "An error occurred"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        enabled = !isSubmitting,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(48.dp),
@@ -457,13 +615,21 @@ fun CreatePermissionFormScreen(
                         ),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text(
-                            text = "Submit",
-                            fontSize = 16.sp,
-                            color = Color.White,
-                            fontWeight = FontWeight.Medium,
-                            fontFamily = AppFontFamily
-                        )
+                        if (isSubmitting) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text(
+                                text = "Submit",
+                                fontSize = 16.sp,
+                                color = Color.White,
+                                fontWeight = FontWeight.Medium,
+                                fontFamily = AppFontFamily
+                            )
+                        }
                     }
                 }
             }
@@ -476,3 +642,4 @@ fun CreatePermissionFormScreen(
 fun CreatePermissionFormScreenPreview() {
     CreatePermissionFormScreen()
 }
+

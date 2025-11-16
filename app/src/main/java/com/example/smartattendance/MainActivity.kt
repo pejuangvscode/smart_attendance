@@ -50,6 +50,7 @@ import com.example.smartattendance.ui.screens.ScheduleScreen
 import com.example.smartattendance.ui.screens.SignUpScreen
 import com.example.smartattendance.ui.screens.SubmissionCompleteScreen
 import com.example.smartattendance.ui.screens.SubmitAttendanceScreen
+import com.example.smartattendance.ui.screens.CreatePermissionFormScreen
 import com.example.smartattendance.ui.theme.SmartAttendanceTheme
 import com.example.smartattendance.utils.SessionManager
 
@@ -411,7 +412,7 @@ fun AppNavigation() {
                     },
                     onCreateRequest = {
                         // TODO: Navigate to create permission request screen
-                        navController.navigate("create_permission_request")
+                        navController.navigate("create_permission_form")
                     },
                     onNavigate = { route ->
                         when (route) {
@@ -429,6 +430,18 @@ fun AppNavigation() {
                                 }
                             }
                         }
+                    }
+                )
+            }
+
+            composable("create_permission_form") {
+                CreatePermissionFormScreen(
+                    user = user,
+                    onBackClick = {
+                        navController.popBackStack()
+                    },
+                    onSubmit = {
+                        navController.popBackStack()
                     }
                 )
             }
