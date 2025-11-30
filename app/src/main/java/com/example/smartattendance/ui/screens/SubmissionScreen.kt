@@ -52,7 +52,11 @@ fun SubmissionScreen(
                     scope.launch {
                         try {
                             val result = attendanceApi!!.submitAttendance(userId, scheduleId!!, courseId!!)
-                            message = result.getOrElse { it.message ?: "Error" }
+                            val (msg, status) = result.getOrElse { Pair(it.message ?: "Error", "pending") }
+                            message = msg
+                            val courseName = attendanceApi.getCourseName(courseId!!) ?: "Unknown Course"
+                            val encodedCourseName = java.net.URLEncoder.encode(courseName, "UTF-8")
+                            navController.navigate("submission_complete_screen/${status}/${encodedCourseName}")
                         } catch (e: Exception) {
                             message = "Gagal submit: ${e.message ?: e.toString()}"
                         } finally {

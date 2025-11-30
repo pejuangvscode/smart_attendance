@@ -29,13 +29,18 @@ class AttendanceApi(private val supabase: SupabaseClient) {
     @Serializable
     data class AttendanceResult(val attendance_id: Int, val is_verified: Boolean)
 
+    @Serializable
+    data class CourseData(
+        val course_name: String
+    )
+
     // Submit attendance - check if exists, if not create, if exists update is_verified
     suspend fun submitAttendance(
         userId: String,
         scheduleId: Int,
         courseId: Int,
         status: String = "present"
-    ): Result<String> = withContext(Dispatchers.IO) {
+    ): Result<Pair<String, String>> = withContext(Dispatchers.IO) {
         try {
             // First, get enrollment_id for this user and course
             val enrollmentResult = supabase.postgrest["enrollments"]
@@ -76,7 +81,7 @@ class AttendanceApi(private val supabase: SupabaseClient) {
                             eq("attendance_id", attendanceId)
                         }
                     }
-                return@withContext Result.success("Attendance verified successfully")
+                return@withContext Result.success(Pair("Attendance verified successfully", "present"))
             } else {
                 // Create new attendance record with is_verified = false
                 supabase.postgrest["attendances"]
@@ -87,7 +92,7 @@ class AttendanceApi(private val supabase: SupabaseClient) {
                         status = status,
                         is_verified = false
                     ))
-                return@withContext Result.success("Attendance submitted, waiting for verification")
+                return@withContext Result.success(Pair("Attendance submitted, waiting for verification", "pending"))
             }
         } catch (e: Exception) {
             return@withContext Result.failure(e)
@@ -131,6 +136,19 @@ class AttendanceApi(private val supabase: SupabaseClient) {
             return@withContext Result.success(attendance.firstOrNull())
         } catch (e: Exception) {
             return@withContext Result.failure(e)
+        }
+    }
+
+    suspend fun getCourseName(courseId: Int): String? = withContext(Dispatchers.IO) {
+        try {
+            val result = supabase.postgrest["courses"]
+                .select(columns = Columns.list("course_name")) {
+                    filter { eq("course_id", courseId) }
+                }
+                .decodeList<CourseData>()
+            return@withContext result.firstOrNull()?.course_name
+        } catch (e: Exception) {
+            return@withContext null
         }
     }
 }

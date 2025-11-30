@@ -25,6 +25,8 @@ import com.example.smartattendance.ui.theme.AppFontFamily
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubmitionComplete(
+    status: String = "pending",
+    courseName: String = "",
     onBackClick: () -> Unit = {},
     onNavigateHome: () -> Unit = {}
 ) {
@@ -81,7 +83,7 @@ fun SubmitionComplete(
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "PENDING",
+                text = status.uppercase(),
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = AppFontFamily,
@@ -145,12 +147,8 @@ fun SubmitionComplete(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     // Detail Items
-                    DetailRow("Class", "KEAMANAN KOMPUTER & JARINGAN")
-                    DetailRow("Instructor", "PUJIANTO YUGOPUSPITO")
-                    DetailRow("Room", "B342")
-                    DetailRow("Date", "26 SEPTEMBER 2025")
-                    DetailRow("Time", "7:30")
-                    DetailRow("Status", "PRESENT", statusColor = Color(0xFFFFD54F))
+                    DetailRow("Class", courseName)
+                    DetailRow("Status", status.uppercase(), statusColor = Color(0xFFFFD54F))
                 }
             }
 
@@ -179,6 +177,7 @@ fun SubmitionComplete(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    // Example static info, you can update as needed
                     DetailRow("Day", "Friday")
                     DetailRow("Schedule", "7:15AM - 9:45AM")
                 }

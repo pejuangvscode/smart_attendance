@@ -56,6 +56,7 @@ import com.example.smartattendance.utils.SessionManager
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.example.smartattendance.ui.screens.SubmissionScreen
+import com.example.smartattendance.ui.screens.SubmitionComplete
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -461,6 +462,23 @@ fun AppNavigation() {
                     navController = navController,
                     scheduleId = scheduleId,
                     courseId = courseId
+                )
+            }
+
+            composable(
+                "submission_complete_screen/{status}/{courseName}",
+                arguments = listOf(
+                    navArgument("status") { type = NavType.StringType },
+                    navArgument("courseName") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val status = backStackEntry.arguments?.getString("status") ?: ""
+                val courseName = backStackEntry.arguments?.getString("courseName") ?: ""
+                SubmitionComplete(
+                    status = status,
+                    courseName = courseName,
+                    onBackClick = { navController.navigate("home") },
+                    onNavigateHome = { navController.navigate("home") }
                 )
             }
         }
