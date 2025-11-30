@@ -78,16 +78,16 @@ class AttendanceApi(private val supabase: SupabaseClient) {
                     }
                 return@withContext Result.success("Attendance verified successfully")
             } else {
-                // Create new attendance record
+                // Create new attendance record with is_verified = false
                 supabase.postgrest["attendances"]
                     .insert(AttendanceRecord(
                         enrollment_id = enrollmentId,
                         schedule_id = scheduleId,
                         attendance_date = today,
                         status = status,
-                        is_verified = true
+                        is_verified = false
                     ))
-                return@withContext Result.success("Attendance submitted successfully")
+                return@withContext Result.success("Attendance submitted, waiting for verification")
             }
         } catch (e: Exception) {
             return@withContext Result.failure(e)
