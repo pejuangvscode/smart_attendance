@@ -45,14 +45,16 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.ui.platform.LocalView
 import android.app.Activity
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     user: AuthApi.User?,
     sessionManager: SessionManager,
+    navController: NavController,
     onLogout: () -> Unit = {},
-    onSubmitAttendance: () -> Unit = {},
     onDateClick: () -> Unit = {},
     onRequestPermission: () -> Unit = {},
     onBackClick: () -> Unit = {}
@@ -288,7 +290,10 @@ fun HomeScreen(
                                 if (schedule.isActive) {
                                     // Show Submit button for active class
                                     Button(
-                                        onClick = onSubmitAttendance,
+                                        onClick = {
+                                            // Navigasi ke SubmissionScreen dengan parameter jadwal aktif
+                                            navController.navigate("submission_screen/${schedule.scheduleId}/${schedule.courseId}")
+                                        },
                                         colors = ButtonDefaults.buttonColors(containerColor = redColor),
                                         shape = RoundedCornerShape(8.dp),
                                         modifier = Modifier.height(32.dp)
@@ -649,7 +654,7 @@ fun IndividualDonutChart(
 @Composable
 fun HomeScreenPreview() {
     SmartAttendanceTheme {
-        HomeScreen(user = AuthApi.User(full_name = "Teo", email = "", password_hash = ""), sessionManager = SessionManager(LocalContext.current))
+        HomeScreen(user = AuthApi.User(full_name = "Teo", email = "", password_hash = ""), sessionManager = SessionManager(LocalContext.current), navController = rememberNavController())
     }
 }
 
@@ -657,7 +662,9 @@ fun HomeScreenPreview() {
 data class CurrentScheduleInfo(
     val courseName: String,
     val time: String,
-    val isActive: Boolean  // true if class is currently in session (within 15 min window)
+    val isActive: Boolean,  // true if class is currently in session (within 15 min window)
+    val scheduleId: Int,    // id jadwal
+    val courseId: Int       // id course
 )
 
 // Local data class to match ScheduleApi.ScheduleItem structure
@@ -679,11 +686,17 @@ private fun determineCurrentSchedule(schedules: List<Any>): CurrentScheduleInfo?
             // Access properties using reflection
             val titleField = schedule::class.java.getDeclaredField("title")
             val timeField = schedule::class.java.getDeclaredField("time")
+            val scheduleIdField = schedule::class.java.getDeclaredField("scheduleId")
+            val courseIdField = schedule::class.java.getDeclaredField("courseId")
             titleField.isAccessible = true
             timeField.isAccessible = true
+            scheduleIdField.isAccessible = true
+            courseIdField.isAccessible = true
 
             val title = titleField.get(schedule) as String
             val time = timeField.get(schedule) as String
+            val scheduleId = (scheduleIdField.get(schedule) as Number).toInt()
+            val courseId = (courseIdField.get(schedule) as Number).toInt()
 
             // Extract course name from title (format: "Course Name - CODE - ROOM")
             val courseName = title.split(" - ").getOrNull(0) ?: title
@@ -704,7 +717,9 @@ private fun determineCurrentSchedule(schedules: List<Any>): CurrentScheduleInfo?
                 return CurrentScheduleInfo(
                     courseName = courseName,
                     time = time,
-                    isActive = true
+                    isActive = true,
+                    scheduleId = scheduleId,
+                    courseId = courseId
                 )
             }
         } catch (e: Exception) {
@@ -717,11 +732,17 @@ private fun determineCurrentSchedule(schedules: List<Any>): CurrentScheduleInfo?
         try {
             val titleField = schedule::class.java.getDeclaredField("title")
             val timeField = schedule::class.java.getDeclaredField("time")
+            val scheduleIdField = schedule::class.java.getDeclaredField("scheduleId")
+            val courseIdField = schedule::class.java.getDeclaredField("courseId")
             titleField.isAccessible = true
             timeField.isAccessible = true
+            scheduleIdField.isAccessible = true
+            courseIdField.isAccessible = true
 
             val title = titleField.get(schedule) as String
             val time = timeField.get(schedule) as String
+            val scheduleId = (scheduleIdField.get(schedule) as Number).toInt()
+            val courseId = (courseIdField.get(schedule) as Number).toInt()
 
             val courseName = title.split(" - ").getOrNull(0) ?: title
             val timeRange = time.split(" - ")
@@ -735,7 +756,9 @@ private fun determineCurrentSchedule(schedules: List<Any>): CurrentScheduleInfo?
                 return CurrentScheduleInfo(
                     courseName = courseName,
                     time = time,
-                    isActive = false
+                    isActive = false,
+                    scheduleId = scheduleId,
+                    courseId = courseId
                 )
             }
         } catch (e: Exception) {
@@ -775,6 +798,3 @@ private fun convertTo24Hour(time12h: String): String {
         "00:00:00"
     }
 }
-
-
-

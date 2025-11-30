@@ -1,164 +1,76 @@
 package com.example.smartattendance.ui.screens
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.*
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.example.smartattendance.api.AttendanceApi
 import com.example.smartattendance.api.AuthApi
-import com.example.smartattendance.utils.SessionManager
 import kotlinx.coroutines.launch
-import androidx.compose.ui.platform.LocalContext
-import android.util.Log
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 
-import com.example.smartattendance.CurrentScheduleInfo
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubmissionScreen(
     user: AuthApi.User?,
-    sessionManager: SessionManager,
-    scheduleInfo: CurrentScheduleInfo,
-    onBackClick: () -> Unit = {},
-    onSubmissionComplete: () -> Unit = {}
+    navController: NavController,
+    scheduleId: Int?,
+    courseId: Int?,
+    onAttendanceSubmitted: () -> Unit = {},
+    modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    val attendanceApi = remember { AttendanceApi(AuthApi.supabase) }
-
+    val scope = rememberCoroutineScope()
     var isSubmitting by remember { mutableStateOf(false) }
-    var submissionResult by remember { mutableStateOf<Result<String>?>(null) }
+    var message by remember { mutableStateOf("") }
 
-    // Extract schedule details from scheduleInfo
-    val courseName = scheduleInfo.courseName
-    val time = scheduleInfo.time
+    // Validasi Supabase
+    val supabaseClient = AuthApi.supabase
+    val attendanceApi = remember { if (supabaseClient != null) AttendanceApi(supabaseClient) else null }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Submit Attendance") },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                }
-            )
+    // Validasi userId
+    val userId = user?.user_id ?: ""
+    val isReady = userId.isNotEmpty() && scheduleId != null && courseId != null && attendanceApi != null
+
+    Column(
+        modifier = modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Submit Attendance", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(24.dp))
+        if (!isReady) {
+            Text("Error: Data tidak lengkap atau Supabase belum siap.\nuserId: $userId\nscheduleId: $scheduleId\ncourseId: $courseId\nSupabase: ${if (attendanceApi == null) "null" else "ready"}", color = MaterialTheme.colorScheme.error)
         }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            // Course info card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = courseName.uppercase(),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    Text(
-                        text = time,
-                        fontSize = 16.sp,
-                        color = Color.Gray
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Submit button
-            Button(
-                onClick = {
-                    coroutineScope.launch {
-                        isSubmitting = true
-                        submissionResult = null
-
+        Button(
+            onClick = {
+                if (isReady) {
+                    isSubmitting = true
+                    scope.launch {
                         try {
-                            // Assuming we have scheduleId and courseId from scheduleInfo
-                            // For now, we'll need to get them from the schedule data
-                            // This might need adjustment based on how scheduleInfo is structured
-                            val result = attendanceApi.submitAttendance(
-                                userId = user?.user_id ?: "",
-                                scheduleId = scheduleInfo.scheduleId ?: 1, // TODO: Get from scheduleInfo
-                                courseId = scheduleInfo.courseId ?: 1    // TODO: Get from scheduleInfo
-                            )
-                            submissionResult = result
-                            if (result.isSuccess) {
-                                Log.d("SubmissionScreen", "Attendance submitted successfully")
-                                // Navigate back after success
-                                onSubmissionComplete()
-                            }
+                            val result = attendanceApi!!.submitAttendance(userId, scheduleId!!, courseId!!)
+                            message = result.getOrElse { it.message ?: "Error" }
                         } catch (e: Exception) {
-                            submissionResult = Result.failure(e)
-                            Log.e("SubmissionScreen", "Error submitting attendance", e)
+                            message = "Gagal submit: ${e.message ?: e.toString()}"
                         } finally {
                             isSubmitting = false
+                            onAttendanceSubmitted()
                         }
                     }
-                },
-                enabled = !isSubmitting,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE0697E))
-            ) {
-                if (isSubmitting) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
                 } else {
-                    Text(
-                        text = "Submit Attendance",
-                        fontSize = 16.sp,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
+                    message = "User ID, schedule, course, atau Supabase tidak valid."
                 }
-            }
-
-            // Result message
-            submissionResult?.let { result ->
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = if (result.isSuccess) {
-                        result.getOrNull() ?: "Success"
-                    } else {
-                        "Error: ${result.exceptionOrNull()?.message ?: "Unknown error"}"
-                    },
-                    color = if (result.isSuccess) Color.Green else Color.Red,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-            }
+            },
+            enabled = !isSubmitting && isReady
+        ) {
+            Text(if (isSubmitting) "Submitting..." else "Submit Attendance")
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        if (message.isNotEmpty()) {
+            Text(message, color = if (message.startsWith("Gagal") || message.startsWith("Error")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onBackground)
         }
     }
 }

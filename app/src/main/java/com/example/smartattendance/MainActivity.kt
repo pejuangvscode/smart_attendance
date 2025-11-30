@@ -53,6 +53,9 @@ import com.example.smartattendance.ui.screens.SubmitAttendanceScreen
 import com.example.smartattendance.ui.screens.CreatePermissionFormScreen
 import com.example.smartattendance.ui.theme.SmartAttendanceTheme
 import com.example.smartattendance.utils.SessionManager
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import com.example.smartattendance.ui.screens.SubmissionScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -211,14 +214,12 @@ fun AppNavigation() {
                 HomeScreen(
                     user = user,
                     sessionManager = sessionManager,
+                    navController = navController,
                     onLogout = {
                         user = null // Clear user on logout
                         navController.navigate("login") {
                             popUpTo(0)
                         }
-                    },
-                    onSubmitAttendance = {
-                        navController.navigate("attendance")
                     },
                     onDateClick = {
                         navController.navigate("history")
@@ -443,6 +444,23 @@ fun AppNavigation() {
                     onSubmit = {
                         navController.popBackStack()
                     }
+                )
+            }
+
+            composable(
+                "submission_screen/{scheduleId}/{courseId}",
+                arguments = listOf(
+                    navArgument("scheduleId") { type = androidx.navigation.NavType.IntType },
+                    navArgument("courseId") { type = androidx.navigation.NavType.IntType }
+                )
+            ) { backStackEntry ->
+                val scheduleId = backStackEntry.arguments?.getInt("scheduleId")
+                val courseId = backStackEntry.arguments?.getInt("courseId")
+                SubmissionScreen(
+                    user = user,
+                    navController = navController,
+                    scheduleId = scheduleId,
+                    courseId = courseId
                 )
             }
         }
