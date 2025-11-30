@@ -17,6 +17,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.smartattendance.api.AttendanceDetailApi
+import com.example.smartattendance.api.AuthApi
+import com.example.smartattendance.api.AttendanceDetailData
 import com.example.smartattendance.ui.components.AppHeader
 import com.example.smartattendance.ui.components.HeaderType
 import com.example.smartattendance.ui.components.AppBottomNavigation
@@ -27,9 +30,20 @@ import com.example.smartattendance.ui.theme.AppFontFamily
 fun SubmitionComplete(
     status: String = "pending",
     courseName: String = "",
+    courseId: Int = 0,
+    scheduleId: Int = 0,
     onBackClick: () -> Unit = {},
     onNavigateHome: () -> Unit = {}
 ) {
+    var detail by remember { mutableStateOf<AttendanceDetailData?>(null) }
+    val supabaseClient = AuthApi.supabase
+
+    LaunchedEffect(courseId, scheduleId) {
+        if (supabaseClient != null && courseId != 0 && scheduleId != 0) {
+            detail = AttendanceDetailApi.getAttendanceDetail(supabaseClient, courseId, scheduleId)
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -147,7 +161,11 @@ fun SubmitionComplete(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     // Detail Items
-                    DetailRow("Class", courseName)
+                    DetailRow("Class", detail?.courseName ?: courseName)
+                    DetailRow("Instructor", detail?.instructorName ?: "")
+                    DetailRow("Room", detail?.room ?: "")
+                    DetailRow("Date", detail?.attendanceDate ?: "")
+                    DetailRow("Time", detail?.attendanceTime ?: "")
                     DetailRow("Status", status.uppercase(), statusColor = Color(0xFFFFD54F))
                 }
             }
@@ -162,7 +180,6 @@ fun SubmitionComplete(
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                 shape = RoundedCornerShape(8.dp),
-
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp)
@@ -177,9 +194,10 @@ fun SubmitionComplete(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Example static info, you can update as needed
-                    DetailRow("Day", "Friday")
-                    DetailRow("Schedule", "7:15AM - 9:45AM")
+                    DetailRow("Instructor", detail?.instructorName ?: "")
+                    DetailRow("Room", detail?.room ?: "")
+                    DetailRow("Day", detail?.day ?: "")
+                    DetailRow("Schedule", "${detail?.startTime ?: ""} - ${detail?.endTime ?: ""}")
                 }
             }
         }

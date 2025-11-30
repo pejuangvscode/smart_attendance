@@ -56,7 +56,7 @@ fun SubmissionScreen(
                             message = msg
                             val courseName = attendanceApi.getCourseName(courseId!!) ?: "Unknown Course"
                             val encodedCourseName = java.net.URLEncoder.encode(courseName, "UTF-8")
-                            navController.navigate("submission_complete_screen/${status}/${encodedCourseName}")
+                            navController.navigate("submission_complete_screen/${status}/${encodedCourseName}/${courseId!!}/${scheduleId!!}")
                         } catch (e: Exception) {
                             message = "Gagal submit: ${e.message ?: e.toString()}"
                         } finally {

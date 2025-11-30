@@ -466,17 +466,23 @@ fun AppNavigation() {
             }
 
             composable(
-                "submission_complete_screen/{status}/{courseName}",
+                "submission_complete_screen/{status}/{courseName}/{courseId}/{scheduleId}",
                 arguments = listOf(
                     navArgument("status") { type = NavType.StringType },
-                    navArgument("courseName") { type = NavType.StringType }
+                    navArgument("courseName") { type = NavType.StringType },
+                    navArgument("courseId") { type = NavType.IntType },
+                    navArgument("scheduleId") { type = NavType.IntType }
                 )
             ) { backStackEntry ->
                 val status = backStackEntry.arguments?.getString("status") ?: ""
                 val courseName = backStackEntry.arguments?.getString("courseName") ?: ""
+                val courseId = backStackEntry.arguments?.getInt("courseId") ?: 0
+                val scheduleId = backStackEntry.arguments?.getInt("scheduleId") ?: 0
                 SubmitionComplete(
                     status = status,
                     courseName = courseName,
+                    courseId = courseId,
+                    scheduleId = scheduleId,
                     onBackClick = { navController.navigate("home") },
                     onNavigateHome = { navController.navigate("home") }
                 )
