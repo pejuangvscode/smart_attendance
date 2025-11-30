@@ -7,10 +7,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import kotlinx.serialization.Serializable
 
 class AttendanceApi(private val supabase: SupabaseClient) {
 
     // Data class for attendance record
+    @Serializable
     data class AttendanceRecord(
         val attendance_id: Int? = null,
         val enrollment_id: Int,
@@ -20,6 +22,12 @@ class AttendanceApi(private val supabase: SupabaseClient) {
         val is_verified: Boolean = false,
         val recorded_at: String? = null
     )
+
+    @Serializable
+    data class EnrollmentResult(val enrollment_id: Int)
+
+    @Serializable
+    data class AttendanceResult(val attendance_id: Int, val is_verified: Boolean)
 
     // Submit attendance - check if exists, if not create, if exists update is_verified
     suspend fun submitAttendance(
@@ -37,13 +45,13 @@ class AttendanceApi(private val supabase: SupabaseClient) {
                         eq("course_id", courseId)
                     }
                 }
-                .decodeList<Map<String, Any>>()
+                .decodeList<EnrollmentResult>()
 
             if (enrollmentResult.isEmpty()) {
                 return@withContext Result.failure(Exception("User is not enrolled in this course"))
             }
 
-            val enrollmentId = (enrollmentResult.first()["enrollment_id"] as Number).toInt()
+            val enrollmentId = enrollmentResult.first().enrollment_id
             val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
 
             // Check if attendance record already exists
@@ -55,11 +63,11 @@ class AttendanceApi(private val supabase: SupabaseClient) {
                         eq("attendance_date", today)
                     }
                 }
-                .decodeList<Map<String, Any>>()
+                .decodeList<AttendanceResult>()
 
             if (existingAttendance.isNotEmpty()) {
                 // Update existing record to verified
-                val attendanceId = (existingAttendance.first()["attendance_id"] as Number).toInt()
+                val attendanceId = existingAttendance.first().attendance_id
                 supabase.postgrest["attendances"]
                     .update({
                         set("is_verified", true)
@@ -101,13 +109,13 @@ class AttendanceApi(private val supabase: SupabaseClient) {
                         eq("course_id", courseId)
                     }
                 }
-                .decodeList<Map<String, Any>>()
+                .decodeList<EnrollmentResult>()
 
             if (enrollmentResult.isEmpty()) {
                 return@withContext Result.success(null)
             }
 
-            val enrollmentId = (enrollmentResult.first()["enrollment_id"] as Number).toInt()
+            val enrollmentId = enrollmentResult.first().enrollment_id
             val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
 
             val attendance = supabase.postgrest["attendances"]
