@@ -12,6 +12,10 @@ import com.example.smartattendance.api.AttendanceApi
 import com.example.smartattendance.api.AuthApi
 import kotlinx.coroutines.launch
 import androidx.navigation.NavController
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Error
 
 @Composable
 fun SubmissionScreen(
@@ -69,7 +73,11 @@ fun SubmissionScreen(
                     val encodedCourseName = java.net.URLEncoder.encode(courseName, "UTF-8")
                     navController.navigate("submission_complete_screen/pending/${encodedCourseName}/${courseId}/${scheduleId}")
                 }
-                // Jika sudah ada row, tampilkan peringatan
+                // Jika sudah ada row dan is_verified true dan status bukan pending, langsung ke submission complete dengan logo CheckCircle
+                if (record.is_verified && record.status != "pending") {
+                    val encodedCourseName = java.net.URLEncoder.encode(courseName, "UTF-8")
+                    navController.navigate("submission_complete_screen/${record.status}/${encodedCourseName}/${courseId}/${scheduleId}")
+                }
             }
         }
     }
@@ -130,6 +138,23 @@ fun SubmissionScreen(
         Spacer(modifier = Modifier.height(16.dp))
         if (message.isNotEmpty()) {
             Text(message, color = if (message.startsWith("Gagal") || message.startsWith("Error")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onBackground)
+        }
+        if (alreadyHasRow && attendanceStatus != "pending") {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val icon = when (attendanceStatus) {
+                    "present" -> Icons.Filled.CheckCircle
+                    "late" -> Icons.Filled.Schedule
+                    "absent" -> Icons.Filled.Error
+                    else -> Icons.Filled.Error
+                }
+                Icon(icon, contentDescription = attendanceStatus.capitalize(), tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Status: ${attendanceStatus.capitalize()}", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            }
+        }
+        if (alreadyHasRow && attendanceStatus == "pending") {
+            Spacer(modifier = Modifier.height(12.dp))
+            // Tidak perlu warning lagi jika status sudah present
         }
     }
 }

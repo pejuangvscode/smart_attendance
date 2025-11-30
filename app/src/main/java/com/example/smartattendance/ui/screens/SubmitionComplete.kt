@@ -1,12 +1,21 @@
 package com.example.smartattendance.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTimeFilled
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.HdrAuto
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Outbound
+import androidx.compose.material.icons.filled.Pending
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,6 +53,15 @@ fun SubmitionComplete(
         }
     }
 
+    // Intercept system back button to go to home
+    BackHandler {
+        try {
+            onNavigateHome()
+        } catch (e: Exception) {
+            // Fallback: do nothing or show error
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -53,7 +71,13 @@ fun SubmitionComplete(
         AppHeader(
             title = "Attendance Detail",
             headerType = HeaderType.BACK,
-            onBackClick = onBackClick
+            onBackClick = {
+                try {
+                    onNavigateHome()
+                } catch (e: Exception) {
+                    // Fallback: do nothing or show error
+                }
+            }
         )
 
         // Content
@@ -68,77 +92,79 @@ fun SubmitionComplete(
         ) {
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Pending Icon
+            // Status Icon & Color Mapping
+            val (statusColor, statusIcon) = when (status.lowercase()) {
+                "present" -> Color(0xFF00CC2C) to Icons.Filled.CheckCircle
+                "absent" -> Color(0xFFE53E3E) to Icons.Filled.HdrAuto
+                "late" -> Color(0xFFFF9D00) to Icons.Filled.AccessTimeFilled
+                "pending" -> Color(0xFFFF9D00) to Icons.Filled.Pending
+                "approved" -> Color(0xFF4285F4) to Icons.Filled.CheckCircle
+                "rejected" -> Color(0xFFE53E3E) to Icons.Filled.Cancel
+                "not yet" -> Color(0xFF2C2D32) to Icons.Filled.Info
+                "sick" -> Color(0xFF9C27B0) to Icons.Filled.AddCircle
+                "excused" -> Color(0xFF607D8B) to Icons.Filled.Outbound
+                else -> Color(0xFF00CC2C) to Icons.Filled.CheckCircle
+            }
             Box(
-                modifier = Modifier
-                    .size(120.dp)
-                    .background(
-                        color = Color(0xFFFFD54F),
-                        shape = RoundedCornerShape(60.dp)
-                    ),
+                modifier = Modifier.size(120.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    repeat(3) {
-                        Box(
-                            modifier = Modifier
-                                .size(12.dp)
-                                .background(
-                                    color = Color.White,
-                                    shape = RoundedCornerShape(6.dp)
-                                )
-                        )
-                    }
-                }
+                Icon(
+                    statusIcon,
+                    contentDescription = status.capitalize(),
+                    tint = statusColor,
+                    modifier = Modifier.size(96.dp)
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Status Text
             Text(
                 text = status.uppercase(),
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = AppFontFamily,
-                color = Color(0xFFFFD54F),
+                color = statusColor,
                 letterSpacing = 2.sp
             )
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Warning Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
+            // Warning Card only for pending
+            if (status.lowercase() == "pending") {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text(
-                        text = "Warning!",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = AppFontFamily,
-                        color = Color.Red,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = "Warning!",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = AppFontFamily,
+                            color = Color.Red,
+                            modifier = Modifier.fillMaxWidth()
+                        )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                    Text(
-                        text = "Ensure your face is visible to the external camera so that your presence can be verified.",
-                        fontSize = 14.sp,
-                        fontFamily = AppFontFamily,
-                        color = Color(0xFF666666),
-                        lineHeight = 20.sp
-                    )
+                        Text(
+                            text = "Ensure your face is visible to the external camera so that your presence can be verified.",
+                            fontSize = 14.sp,
+                            fontFamily = AppFontFamily,
+                            color = Color(0xFF666666),
+                            lineHeight = 20.sp
+                        )
+                    }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             // Detail Card
             Card(
@@ -166,7 +192,7 @@ fun SubmitionComplete(
                     DetailRow("Room", detail?.room ?: "")
                     DetailRow("Date", detail?.attendanceDate ?: "")
                     DetailRow("Time", detail?.attendanceTime ?: "")
-                    DetailRow("Status", status.uppercase(), statusColor = Color(0xFFFFD54F))
+                    DetailRow("Status", status.uppercase(), statusColor = statusColor)
                 }
             }
 
