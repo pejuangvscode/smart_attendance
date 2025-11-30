@@ -33,41 +33,65 @@ fun SubmissionScreen(
     var alreadyHasRow by remember { mutableStateOf(false) }
     var attendanceStatus by remember { mutableStateOf("") }
 
-    // Validasi userId
+    // Ambil detail kelas
+    var courseName by remember { mutableStateOf("") }
+    var scheduleInfo by remember { mutableStateOf("") }
+    var roomInfo by remember { mutableStateOf("") }
+
     val userId = user?.user_id ?: ""
     val isReady = userId.isNotEmpty() && scheduleId != null && courseId != null && attendanceApi != null
+
+    LaunchedEffect(courseId) {
+        if (courseId != null && attendanceApi != null) {
+            courseName = attendanceApi.getCourseName(courseId) ?: "Unknown Course"
+        }
+    }
+    LaunchedEffect(scheduleId) {
+        if (scheduleId != null && attendanceApi != null) {
+            val info = attendanceApi.getScheduleInfo(scheduleId)
+            if (info != null) {
+                scheduleInfo = "${info.day} ${info.start_time} - ${info.end_time}"
+                roomInfo = info.room ?: "-"
+            }
+        }
+    }
 
     // Check today's attendance before showing submit button
     LaunchedEffect(userId, scheduleId, courseId) {
         if (isReady && !attendanceChecked) {
-            val record = attendanceApi.getTodayAttendance(userId, scheduleId, courseId).getOrNull()
+            val record = attendanceApi?.getTodayAttendance(userId, scheduleId!!, courseId!!)?.getOrNull()
             attendanceChecked = true
             if (record != null) {
                 alreadyHasRow = true
                 attendanceStatus = record.status
-                // Aturan 4: jika status bukan pending dan is_verified true, langsung ke submission complete
-                if (record.status != "pending" && record.is_verified) {
-                    val courseName = attendanceApi.getCourseName(courseId) ?: "Unknown Course"
+                // Jika sudah ada row dan status pending serta is_verified false, langsung redirect
+                if (record.status == "pending" && !record.is_verified) {
                     val encodedCourseName = java.net.URLEncoder.encode(courseName, "UTF-8")
-                    navController.navigate("submission_complete_screen/${record.status}/${encodedCourseName}/${courseId}/${scheduleId}")
+                    navController.navigate("submission_complete_screen/pending/${encodedCourseName}/${courseId}/${scheduleId}")
                 }
-                // Aturan 3: jika is_verified false dan from_camera false, redirect ke submission complete
-                else if (!record.is_verified && (record as? com.example.smartattendance.api.AttendanceApi.AttendanceResultWithCameraTime)?.from_camera == false) {
-                    val courseName = attendanceApi.getCourseName(courseId) ?: "Unknown Course"
-                    val encodedCourseName = java.net.URLEncoder.encode(courseName, "UTF-8")
-                    navController.navigate("submission_complete_screen/${record.status}/${encodedCourseName}/${courseId}/${scheduleId}")
-                }
-                // Aturan 2: jika is_verified false dan from_camera true, biarkan user submit untuk verifikasi
+                // Jika sudah ada row, tampilkan peringatan
             }
         }
     }
 
     Column(
         modifier = modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+        verticalArrangement = Arrangement.Top,
+        horizontalAlignment = Alignment.Start
     ) {
-        Text("Submit Attendance", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Text("Informasi Kelas", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text("Mata Kuliah: $courseName", fontSize = 16.sp)
+        Text("Jadwal: $scheduleInfo", fontSize = 16.sp)
+        Text("Ruangan: $roomInfo", fontSize = 16.sp)
+        Spacer(modifier = Modifier.height(16.dp))
+        Divider()
+        Spacer(modifier = Modifier.height(16.dp))
+        Text("Status Kehadiran: ${if (!alreadyHasRow) "Belum absen" else attendanceStatus}", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+        if (alreadyHasRow) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text("Segera masuk kelas agar wajah tertangkap kamera untuk absen dan akhirnya verified.", color = MaterialTheme.colorScheme.error, fontSize = 14.sp)
+        }
         Spacer(modifier = Modifier.height(24.dp))
         if (!isReady) {
             Text("Error: Data tidak lengkap atau Supabase belum siap.\nuserId: $userId\nscheduleId: $scheduleId\ncourseId: $courseId\nSupabase: ${if (attendanceApi == null) "null" else "ready"}", color = MaterialTheme.colorScheme.error)
@@ -82,7 +106,6 @@ fun SubmissionScreen(
                                 val result = attendanceApi.submitAttendance(userId, scheduleId, courseId)
                                 if (result.isSuccess) {
                                     val status = result.getOrNull()?.second ?: "pending"
-                                    val courseName = attendanceApi.getCourseName(courseId) ?: "Unknown Course"
                                     val encodedCourseName = java.net.URLEncoder.encode(courseName, "UTF-8")
                                     navController.navigate("submission_complete_screen/${status}/${encodedCourseName}/${courseId}/${scheduleId}")
                                 } else {

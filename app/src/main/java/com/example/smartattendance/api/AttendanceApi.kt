@@ -180,4 +180,25 @@ class AttendanceApi(private val supabase: SupabaseClient) {
             return@withContext null
         }
     }
+
+    suspend fun getScheduleInfo(scheduleId: Int): ScheduleInfo? = withContext(Dispatchers.IO) {
+        try {
+            val result = supabase.postgrest["schedules"]
+                .select(columns = Columns.list("day", "start_time", "end_time", "room")) {
+                    filter { eq("schedule_id", scheduleId) }
+                }
+                .decodeList<ScheduleInfo>()
+            return@withContext result.firstOrNull()
+        } catch (e: Exception) {
+            return@withContext null
+        }
+    }
+
+    @Serializable
+    data class ScheduleInfo(
+        val day: String,
+        val start_time: String,
+        val end_time: String,
+        val room: String?
+    )
 }
