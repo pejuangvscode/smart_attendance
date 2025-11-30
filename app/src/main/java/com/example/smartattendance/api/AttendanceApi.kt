@@ -27,9 +27,6 @@ class AttendanceApi(private val supabase: SupabaseClient) {
     data class EnrollmentResult(val enrollment_id: Int)
 
     @Serializable
-    data class AttendanceResult(val attendance_id: Int, val is_verified: Boolean)
-
-    @Serializable
     data class CourseData(
         val course_name: String
     )
@@ -38,11 +35,10 @@ class AttendanceApi(private val supabase: SupabaseClient) {
     suspend fun submitAttendance(
         userId: String,
         scheduleId: Int,
-        courseId: Int,
-        status: String = "present"
+        courseId: Int
     ): Result<Pair<String, String>> = withContext(Dispatchers.IO) {
         try {
-            // First, get enrollment_id for this user and course
+            // Get enrollment_id
             val enrollmentResult = supabase.postgrest["enrollments"]
                 .select(columns = Columns.list("enrollment_id")) {
                     filter {
@@ -51,53 +47,86 @@ class AttendanceApi(private val supabase: SupabaseClient) {
                     }
                 }
                 .decodeList<EnrollmentResult>()
-
             if (enrollmentResult.isEmpty()) {
                 return@withContext Result.failure(Exception("User is not enrolled in this course"))
             }
-
             val enrollmentId = enrollmentResult.first().enrollment_id
             val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
-
             // Check if attendance record already exists
             val existingAttendance = supabase.postgrest["attendances"]
-                .select(columns = Columns.list("attendance_id", "is_verified")) {
+                .select(columns = Columns.list("attendance_id", "is_verified", "from_camera", "recorded_at", "status")) {
                     filter {
                         eq("enrollment_id", enrollmentId)
                         eq("schedule_id", scheduleId)
                         eq("attendance_date", today)
                     }
                 }
-                .decodeList<AttendanceResult>()
-
-            if (existingAttendance.isNotEmpty()) {
-                // Update existing record to verified
-                val attendanceId = existingAttendance.first().attendance_id
-                supabase.postgrest["attendances"]
-                    .update({
-                        set("is_verified", true)
-                    }) {
-                        filter {
-                            eq("attendance_id", attendanceId)
-                        }
-                    }
-                return@withContext Result.success(Pair("Attendance verified successfully", "present"))
-            } else {
-                // Create new attendance record with is_verified = false
+                .decodeList<AttendanceResultWithCameraTime>()
+            if (existingAttendance.isEmpty()) {
+                // Aturan 1: Insert new attendance row, status 'pending'
                 supabase.postgrest["attendances"]
                     .insert(AttendanceRecord(
                         enrollment_id = enrollmentId,
                         schedule_id = scheduleId,
                         attendance_date = today,
-                        status = status,
-                        is_verified = false
+                        status = "pending"
                     ))
                 return@withContext Result.success(Pair("Attendance submitted, waiting for verification", "pending"))
+            } else {
+                val attendance = existingAttendance.first()
+                // Aturan 4: Jika status bukan pending dan is_verified true, langsung redirect
+                if (attendance.status != "pending" && attendance.is_verified) {
+                    return@withContext Result.success(Pair("Attendance already verified", attendance.status))
+                }
+                // Aturan 2: Jika is_verified false dan from_camera true
+                if (!attendance.is_verified && attendance.from_camera) {
+                    // Get schedule start time
+                    val scheduleResult = supabase.postgrest["schedules"]
+                        .select(columns = Columns.list("start_time")) {
+                            filter { eq("schedule_id", scheduleId) }
+                        }
+                        .decodeList<ScheduleStartTime>()
+                    val scheduleStart = scheduleResult.firstOrNull()?.start_time ?: "07:15"
+                    // Compare recorded_at time with schedule start time + 15 min
+                    val attendanceTime = attendance.recorded_at?.substring(11,16) ?: scheduleStart
+                    val startHour = scheduleStart.substring(0,2).toInt()
+                    val startMin = scheduleStart.substring(3,5).toInt()
+                    val toleranceHour = attendanceTime.substring(0,2).toInt()
+                    val toleranceMin = attendanceTime.substring(3,5).toInt()
+                    val startTotalMin = startHour * 60 + startMin
+                    val attendTotalMin = toleranceHour * 60 + toleranceMin
+                    val statusResult = if (attendTotalMin <= startTotalMin + 15) "present" else "late"
+                    // Update is_verified and status
+                    supabase.postgrest["attendances"]
+                        .update({
+                            set("is_verified", true)
+                            set("status", statusResult)
+                        }) {
+                            filter { eq("attendance_id", attendance.attendance_id) }
+                        }
+                    return@withContext Result.success(Pair("Attendance verified successfully", statusResult))
+                }
+                // Aturan 3: Jika is_verified false dan from_camera false
+                // This block is only reached if above conditions are not met
+                return@withContext Result.success(Pair("Attendance submitted, waiting for verification", "pending"))
             }
-        } catch (e: Exception) {
-            return@withContext Result.failure(e)
+        } catch (_: Exception) {
+            return@withContext Result.failure(Exception("Attendance submission failed"))
         }
     }
+
+    @Serializable
+    data class AttendanceResultWithCameraTime(
+        val attendance_id: Int,
+        val is_verified: Boolean,
+        val from_camera: Boolean,
+        val recorded_at: String?,
+        val status: String
+    )
+    @Serializable
+    data class ScheduleStartTime(
+        val start_time: String
+    )
 
     // Get attendance status for today
     suspend fun getTodayAttendance(
