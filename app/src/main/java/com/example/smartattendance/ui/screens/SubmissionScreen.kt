@@ -1,6 +1,11 @@
 package com.example.smartattendance.ui.screens
 
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.pm.PackageManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,16 +17,20 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Pending
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.LocationOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
 import androidx.navigation.NavController
 import com.example.smartattendance.api.AttendanceApi
@@ -29,7 +38,27 @@ import com.example.smartattendance.api.AuthApi
 import com.example.smartattendance.ui.components.AppHeader
 import com.example.smartattendance.ui.components.HeaderType
 import com.example.smartattendance.ui.theme.AppFontFamily
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
+
+// Helper function to calculate distance between two coordinates using Haversine formula
+private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
+    val earthRadius = 6371000.0 // Earth radius in meters
+    val dLat = Math.toRadians(lat2 - lat1)
+    val dLon = Math.toRadians(lon2 - lon1)
+    val a = sin(dLat / 2) * sin(dLat / 2) +
+            cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) *
+            sin(dLon / 2) * sin(dLon / 2)
+    val c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    return (earthRadius * c).toFloat()
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,6 +71,7 @@ fun SubmissionScreen(
     onAttendanceSubmitted: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var isSubmitting by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
 
@@ -53,6 +83,26 @@ fun SubmissionScreen(
     var attendanceStatus by remember { mutableStateOf("") }
     var fromCamera by remember { mutableStateOf(false) }
     var isVerified by remember { mutableStateOf(false) }
+
+    // Location checking states (only when no row exists yet)
+    var isInZone by remember { mutableStateOf(false) }
+    var isCheckingLocation by remember { mutableStateOf(false) }
+    var locationError by remember { mutableStateOf<String?>(null) }
+    var currentDistance by remember { mutableStateOf<Float?>(null) }
+    var hasLocationPermission by remember { mutableStateOf(false) }
+
+    // Target location (kampus)
+    val targetLatitude = -6.234487925552364
+    val targetLongitude = 106.59405922643447
+    val maxDistanceMeters = 50f
+
+    // Location permission launcher
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        hasLocationPermission = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+    }
 
     // Ambil detail kelas
     var courseName by remember { mutableStateOf("") }
@@ -81,6 +131,26 @@ fun SubmissionScreen(
         }
     }
 
+    // Check location permission on load
+    LaunchedEffect(Unit) {
+        hasLocationPermission = ActivityCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED || ActivityCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (!hasLocationPermission) {
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
+
     // Check today's attendance before showing submit button
     LaunchedEffect(userId, scheduleId, courseId) {
         if (isReady && !attendanceChecked) {
@@ -106,6 +176,46 @@ fun SubmissionScreen(
                 // Jika from_camera = true, is_verified = false, status = pending
                 // maka TIDAK redirect, tetap di submission screen dan tampilkan tombol submit
                 // karena user masih perlu submit manual attendance
+            }
+        }
+    }
+
+    // Check location only when there's no row yet
+    @SuppressLint("MissingPermission")
+    LaunchedEffect(hasLocationPermission, alreadyHasRow, attendanceChecked) {
+        if (!alreadyHasRow && hasLocationPermission && attendanceChecked) {
+            isCheckingLocation = true
+            try {
+                val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+                val cancellationTokenSource = CancellationTokenSource()
+
+                val location = fusedLocationClient.getCurrentLocation(
+                    Priority.PRIORITY_HIGH_ACCURACY,
+                    cancellationTokenSource.token
+                ).await()
+
+                if (location != null) {
+                    val distance = calculateDistance(
+                        location.latitude,
+                        location.longitude,
+                        targetLatitude,
+                        targetLongitude
+                    )
+                    currentDistance = distance
+                    isInZone = distance <= maxDistanceMeters
+                    locationError = null
+                } else {
+                    locationError = "Unable to get location"
+                    isInZone = false
+                }
+            } catch (e: SecurityException) {
+                locationError = "Location permission denied"
+                isInZone = false
+            } catch (e: Exception) {
+                locationError = "Error getting location: ${e.message}"
+                isInZone = false
+            } finally {
+                isCheckingLocation = false
             }
         }
     }
@@ -199,26 +309,91 @@ fun SubmissionScreen(
                         )
                     }
                 } else {
+                    // Show location status when no row exists
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.padding(bottom = 24.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Send,
-                            contentDescription = "Submit",
-                            tint = Color(0xFF2C2D32),
-                            modifier = Modifier
-                                .padding(bottom = 8.dp)
-                                .size(120.dp)
-                        )
-                        Text(
-                            "READY TO SUBMIT",
-                            color = Color(0xFF2C2D32),
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = AppFontFamily,
-                            textAlign = TextAlign.Center
-                        )
+                        if (isCheckingLocation) {
+                            CircularProgressIndicator(
+                                color = Color(0xFF2C2D32),
+                                modifier = Modifier
+                                    .padding(bottom = 8.dp)
+                                    .size(120.dp)
+                            )
+                            Text(
+                                "CHECKING LOCATION...",
+                                color = Color(0xFF2C2D32),
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = AppFontFamily,
+                                textAlign = TextAlign.Center
+                            )
+                        } else if (isInZone) {
+                            Icon(
+                                imageVector = Icons.Default.LocationOn,
+                                contentDescription = "In Zone",
+                                tint = Color(0xFF00CC2C),
+                                modifier = Modifier
+                                    .padding(bottom = 8.dp)
+                                    .size(120.dp)
+                            )
+                            Text(
+                                "YOU ARE IN THE ZONE",
+                                color = Color(0xFF00CC2C),
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = AppFontFamily,
+                                textAlign = TextAlign.Center
+                            )
+                            currentDistance?.let { dist ->
+                                Text(
+                                    "Distance: ${String.format("%.1f", dist)} meters",
+                                    color = Color.Gray,
+                                    fontSize = 14.sp,
+                                    fontFamily = AppFontFamily,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                            }
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.LocationOff,
+                                contentDescription = "Not In Zone",
+                                tint = Color(0xFFE53E3E),
+                                modifier = Modifier
+                                    .padding(bottom = 8.dp)
+                                    .size(120.dp)
+                            )
+                            Text(
+                                "NOT IN ZONE",
+                                color = Color(0xFFE53E3E),
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = AppFontFamily,
+                                textAlign = TextAlign.Center
+                            )
+                            currentDistance?.let { dist ->
+                                Text(
+                                    "Distance: ${String.format("%.1f", dist)} meters",
+                                    color = Color.Gray,
+                                    fontSize = 14.sp,
+                                    fontFamily = AppFontFamily,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                            }
+                            locationError?.let { error ->
+                                Text(
+                                    error,
+                                    color = Color(0xFFE53E3E),
+                                    fontSize = 12.sp,
+                                    fontFamily = AppFontFamily,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -290,12 +465,49 @@ fun SubmissionScreen(
                     }
                 }
 
+                // Warning message for location when no row exists
+                if (!alreadyHasRow && !isInZone && !isCheckingLocation) {
+                    Card(
+                        modifier = Modifier
+                            .padding(bottom = 24.dp)
+                            .fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8D7DA)),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocationOff,
+                                contentDescription = "Location Warning",
+                                tint = Color(0xFF721C24),
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .padding(end = 8.dp)
+                            )
+                            Text(
+                                "You must be within 50 meters of the campus location to submit attendance.",
+                                color = Color(0xFF721C24),
+                                fontSize = 14.sp,
+                                fontFamily = AppFontFamily,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
+                    }
+                }
+
                 // Show submit button if:
                 // 1. No attendance record exists yet, OR
                 // 2. Record exists but from_camera=true, is_verified=false, status=pending
                 val shouldShowSubmitButton = !alreadyHasRow || (alreadyHasRow && fromCamera && !isVerified && attendanceStatus == "pending")
 
                 if (shouldShowSubmitButton) {
+                    // For new submissions (no row), user must be in zone
+                    // For camera submissions (has row), no location check needed
+                    val canSubmit = if (!alreadyHasRow) isInZone else true
+
                     Button(
                         onClick = {
                             if (isReady) {
@@ -321,7 +533,7 @@ fun SubmissionScreen(
                                 message = "Invalid user, schedule, or course data."
                             }
                         },
-                        enabled = !isSubmitting && isReady,
+                        enabled = !isSubmitting && isReady && canSubmit,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp)

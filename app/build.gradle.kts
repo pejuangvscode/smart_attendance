@@ -72,6 +72,10 @@ dependencies {
     // DataStore dependency for session management
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 
+    // Google Play Services Location
+    implementation("com.google.android.gms:play-services-location:21.0.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

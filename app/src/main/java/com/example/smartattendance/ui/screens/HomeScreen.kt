@@ -8,13 +8,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ExitToApp
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import com.example.smartattendance.api.AuthApi
 import com.example.smartattendance.api.StatisticsApi
 import com.example.smartattendance.api.ScheduleApi
+import com.example.smartattendance.api.AttendanceApi
 import com.example.smartattendance.data.AttendanceStatistics
 import java.time.LocalTime
 import com.example.smartattendance.ui.theme.SmartAttendanceTheme
@@ -86,18 +91,20 @@ fun HomeScreen(
     var currentSchedule by remember { mutableStateOf<CurrentScheduleInfo?>(null) }
     var isLoadingSchedule by remember { mutableStateOf(false) }
 
+    // State untuk tracking jika attendance sudah verified
+    var isAttendanceVerified by remember { mutableStateOf(false) }
+
+    // State untuk pull-to-refresh
+    var isRefreshing by remember { mutableStateOf(false) }
+
     // Initialize StatisticsApi and ScheduleApi
     val statisticsApi = remember { StatisticsApi(AuthApi.supabase) }
     val scheduleApi = remember { ScheduleApi(AuthApi.supabase) }
+    val attendanceApi = remember { AttendanceApi(AuthApi.supabase) }
 
-    // Fetch statistics saat pertama kali load
-    LaunchedEffect(user?.user_id) {
+    // Function to load all data
+    suspend fun loadData() {
         user?.user_id?.let { userId ->
-            isLoadingStatistics = true
-            isLoadingWeekly = true
-            isLoadingSchedule = true
-            statisticsError = null
-
             try {
                 // Fetch overall statistics
                 val statsResult = statisticsApi.getUserStatistics(userId)
@@ -129,9 +136,28 @@ fun HomeScreen(
                 todayResult.fold(
                     onSuccess = { schedules ->
                         Log.d("HomeScreen", "Today schedules loaded: ${schedules.size} items")
-                        // Determine current or next class
                         currentSchedule = determineCurrentSchedule(schedules)
                         Log.d("HomeScreen", "Current schedule: $currentSchedule")
+
+                        // Check if attendance is already verified for current schedule
+                        currentSchedule?.let { schedule ->
+                            val attendanceResult = attendanceApi.getTodayAttendance(
+                                userId,
+                                schedule.scheduleId,
+                                schedule.courseId
+                            )
+                            attendanceResult.fold(
+                                onSuccess = { attendance ->
+                                    isAttendanceVerified = attendance?.is_verified == true
+                                    Log.d("HomeScreen", "Attendance verified status: $isAttendanceVerified")
+                                },
+                                onFailure = {
+                                    isAttendanceVerified = false
+                                }
+                            )
+                        } ?: run {
+                            isAttendanceVerified = false
+                        }
                     },
                     onFailure = { error ->
                         Log.e("HomeScreen", "Error loading today schedules", error)
@@ -140,12 +166,22 @@ fun HomeScreen(
             } catch (e: Exception) {
                 statisticsError = e.message ?: "Unknown error occurred"
                 Log.e("HomeScreen", "Exception loading statistics", e)
-            } finally {
-                isLoadingStatistics = false
-                isLoadingWeekly = false
-                isLoadingSchedule = false
             }
         }
+    }
+
+    // Fetch statistics saat pertama kali load
+    LaunchedEffect(user?.user_id) {
+        isLoadingStatistics = true
+        isLoadingWeekly = true
+        isLoadingSchedule = true
+        statisticsError = null
+
+        loadData()
+
+        isLoadingStatistics = false
+        isLoadingWeekly = false
+        isLoadingSchedule = false
     }
 
     // Get current date
@@ -156,76 +192,88 @@ fun HomeScreen(
     val year = currentDate.year
     val dayName = dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, Locale.ENGLISH)
 
-
-    Box(
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = {
+            coroutineScope.launch {
+                isRefreshing = true
+                loadData()
+                isRefreshing = false
+            }
+        },
         modifier = Modifier.fillMaxSize()
     ) {
-        Column(
+        Box(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Background split - dark gray top, white bottom
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(0.4f)
-                    .background(color = darkGray)
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(0.6f)
-                    .background(color = Color.White)
-            )
-        }
-
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // Header section
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 25.dp, vertical = 20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.fillMaxSize()
             ) {
-                Column {
-                    Text(
-                        text = "Hello, ${user?.full_name?.split(" ")?.firstOrNull() ?: "User"}!",
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Text(
-                        text = "${user?.nim ?: "Unknown"}/Semester Ganjil",
-                        fontSize = 14.sp,
-                        color = Color.White.copy(alpha = 0.8f)
-                    )
-                }
-
-                IconButton(onClick = {
-                    coroutineScope.launch {
-                        sessionManager.clearSession()
-                        onLogout()
-                    }
-                }) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.ExitToApp,
-                        contentDescription = "Logout",
-                        tint = Color.White,
-                        modifier = Modifier.size(40.dp)
-                    )
-                }
+                // Background split - dark gray top, white bottom
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(0.4f)
+                        .background(color = darkGray)
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(0.6f)
+                        .background(color = Color.White)
+                )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Cards section with proper padding
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 25.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
+                // Header section
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 25.dp, vertical = 20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Hello, ${user?.full_name?.split(" ")?.firstOrNull() ?: "User"}!",
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "${user?.nim ?: "Unknown"}/Semester Ganjil",
+                            fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
+                    }
+
+                    IconButton(onClick = {
+                        coroutineScope.launch {
+                            sessionManager.clearSession()
+                            onLogout()
+                        }
+                    }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ExitToApp,
+                            contentDescription = "Logout",
+                            tint = Color.White,
+                            modifier = Modifier.size(40.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Cards section with proper padding
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 25.dp)
+                ) {
                 // Take attendance card - dynamic based on schedule
                 if (isLoadingSchedule) {
                     // Loading state
@@ -287,8 +335,8 @@ fun HomeScreen(
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
-                                if (schedule.isActive) {
-                                    // Show Submit button for active class
+                                if (schedule.isActive && !isAttendanceVerified) {
+                                    // Show Submit button only if class is active AND attendance not yet verified
                                     Button(
                                         onClick = {
                                             // Navigasi ke SubmissionScreen dengan parameter jadwal aktif
@@ -299,6 +347,25 @@ fun HomeScreen(
                                         modifier = Modifier.height(32.dp)
                                     ) {
                                         Text("Submit", fontSize = 14.sp, color = Color.White)
+                                    }
+                                } else if (schedule.isActive && isAttendanceVerified) {
+                                    // Show "Verified" indicator if attendance is already verified
+                                    Surface(
+                                        color = Color(0xFF4CAF50),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.height(32.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.padding(horizontal = 12.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "Verified",
+                                                fontSize = 14.sp,
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
                                     }
                                 } else {
                                     // Show "Not Yet" indicator for upcoming class
@@ -562,6 +629,7 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
             }
+        }
         }
     }
 }
