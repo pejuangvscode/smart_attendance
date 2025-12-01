@@ -50,7 +50,7 @@ fun ScheduleScreen(
     onNavigateBack: () -> Unit,
     onNavigate: (String) -> Unit,
     onSubmitAttendance: () -> Unit = {},
-    onScheduleItemClick: (String, String) -> Unit = { _, _ -> }
+    onScheduleItemClick: (Int, Int) -> Unit = { _, _ -> }
 ) {
     val darkGray = Color(0xFF2C2D32)
     val coroutineScope = rememberCoroutineScope()
@@ -427,7 +427,7 @@ fun ScheduleScreen(
                         time = item.time,
                         onSubmit = onSubmitAttendance
                     ) {
-                        onScheduleItemClick(item.title, item.time)
+                        onScheduleItemClick(item.scheduleId, item.courseId)
                     }
                 }
             }
@@ -444,7 +444,7 @@ private fun DayScheduleCard(
     isSelected: Boolean,
     onCardClick: () -> Unit,
     onSubmitAttendance: () -> Unit,
-    onScheduleItemClick: (String, String) -> Unit = { _, _ -> },
+    onScheduleItemClick: (Int, Int) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -479,7 +479,7 @@ private fun DayScheduleCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                onScheduleItemClick(schedule.title, schedule.time)
+                                onScheduleItemClick(schedule.scheduleId, schedule.courseId)
                             },
                         colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2D32)),
                         shape = RoundedCornerShape(8.dp)

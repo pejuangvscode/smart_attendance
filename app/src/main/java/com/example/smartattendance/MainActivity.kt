@@ -47,6 +47,7 @@ import com.example.smartattendance.ui.screens.ListScreen
 import com.example.smartattendance.ui.screens.LoginScreen
 import com.example.smartattendance.ui.screens.RequestPermissionScreen
 import com.example.smartattendance.ui.screens.ScheduleScreen
+import com.example.smartattendance.ui.screens.ScheduleDetailScreen
 import com.example.smartattendance.ui.screens.SignUpScreen
 import com.example.smartattendance.ui.screens.SubmissionCompleteScreen
 import com.example.smartattendance.ui.screens.SubmitAttendanceScreen
@@ -387,6 +388,28 @@ fun AppNavigation() {
                                 }
                             }
                         }
+                    },
+                    onScheduleItemClick = { scheduleId, courseId ->
+                        navController.navigate("schedule_detail/$scheduleId/$courseId")
+                    }
+                )
+            }
+
+            composable(
+                "schedule_detail/{scheduleId}/{courseId}",
+                arguments = listOf(
+                    navArgument("scheduleId") { type = NavType.IntType },
+                    navArgument("courseId") { type = NavType.IntType }
+                )
+            ) { backStackEntry ->
+                val scheduleId = backStackEntry.arguments?.getInt("scheduleId") ?: 0
+                val courseId = backStackEntry.arguments?.getInt("courseId") ?: 0
+                ScheduleDetailScreen(
+                    scheduleId = scheduleId,
+                    courseId = courseId,
+                    userId = user?.user_id ?: "",
+                    onBackClick = {
+                        navController.popBackStack()
                     }
                 )
             }

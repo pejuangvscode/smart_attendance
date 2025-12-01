@@ -232,24 +232,24 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
-        ) {
-            TextButton(
-                onClick = { /* Handle forgot password */ },
-                enabled = !isLoading
-            ) {
-                Text(
-                    text = "Forgot Password?",
-                    color = Color.Gray,
-                    fontSize = 14.sp,
-                    fontFamily = AppFontFamily
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
+//        Row(
+//            modifier = Modifier.fillMaxWidth(),
+//            horizontalArrangement = Arrangement.End
+//        ) {
+//            TextButton(
+//                onClick = { /* Handle forgot password */ },
+//                enabled = !isLoading
+//            ) {
+//                Text(
+//                    text = "Forgot Password?",
+//                    color = Color.Gray,
+//                    fontSize = 14.sp,
+//                    fontFamily = AppFontFamily
+//                )
+//            }
+//        }
+//
+//        Spacer(modifier = Modifier.height(32.dp))
 
         Button(
             onClick = { handleLogin() },
