@@ -36,7 +36,10 @@ import com.example.smartattendance.ui.theme.AppFontFamily
 import com.example.smartattendance.utils.SessionManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
     onBackClick: () -> Unit = {},
@@ -56,10 +59,12 @@ fun HistoryScreen(
 ) {
     val context = LocalContext.current
     val sessionManager = remember { SessionManager(context) }
+    val coroutineScope = rememberCoroutineScope()
 
     var attendanceItems by remember { mutableStateOf<List<HistoryGroupedItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     // Set status bar color to match header
     val view = LocalView.current
@@ -73,11 +78,9 @@ fun HistoryScreen(
         }
     }
 
-    // Load data when screen is first composed - similar to HomeScreen pattern
-    LaunchedEffect(Unit) {
-        isLoading = true
+    // Function to load history data
+    suspend fun loadData() {
         errorMessage = null
-
         try {
             val userId = sessionManager.getUserId()
             Log.d("HistoryScreen", "Fetching history for user: $userId")
@@ -101,12 +104,28 @@ fun HistoryScreen(
         } catch (e: Exception) {
             errorMessage = e.message ?: "An error occurred"
             Log.e("HistoryScreen", "Exception loading history", e)
-        } finally {
-            isLoading = false
         }
     }
 
-    Column(
+    // Load data when screen is first composed
+    LaunchedEffect(Unit) {
+        isLoading = true
+        loadData()
+        isLoading = false
+    }
+
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = {
+            coroutineScope.launch {
+                isRefreshing = true
+                loadData()
+                isRefreshing = false
+            }
+        },
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Column(
         modifier = Modifier
             .fillMaxWidth()
             .fillMaxHeight()
@@ -235,6 +254,7 @@ fun HistoryScreen(
                     }
                 }
             }
+        }
         }
     }
 }

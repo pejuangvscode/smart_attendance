@@ -20,6 +20,7 @@ class AttendanceApi(private val supabase: SupabaseClient) {
         val attendance_date: String,
         val status: String,
         val is_verified: Boolean = false,
+        val from_camera: Boolean = false,
         val recorded_at: String? = null
     )
 

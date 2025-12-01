@@ -40,6 +40,8 @@ import com.example.smartattendance.ui.theme.AppFontFamily
 import com.example.smartattendance.utils.SessionManager
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,6 +53,7 @@ fun ScheduleScreen(
     onScheduleItemClick: (String, String) -> Unit = { _, _ -> }
 ) {
     val darkGray = Color(0xFF2C2D32)
+    val coroutineScope = rememberCoroutineScope()
 
     // Set status bar color to match header
     val view = LocalView.current
@@ -70,6 +73,7 @@ fun ScheduleScreen(
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var selectedDayIndex by remember { mutableStateOf(getCurrentDayIndex()) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     // Initialize ScheduleApi
     val scheduleApi = remember { ScheduleApi(AuthApi.supabase) }
@@ -82,11 +86,10 @@ fun ScheduleScreen(
         today.format(formatter)
     }
 
-    // Fetch schedules from database
-    LaunchedEffect(user?.user_id) {
+    // Function to load all schedules
+    suspend fun loadSchedules() {
         user?.user_id?.let { userId ->
-            Log.d("ScheduleScreen", "=== LaunchedEffect triggered for user: $userId ===")
-            isLoading = true
+            Log.d("ScheduleScreen", "=== Loading schedules for user: $userId ===")
             errorMessage = null
 
             try {
@@ -155,23 +158,38 @@ fun ScheduleScreen(
                 )
             } catch (e: Exception) {
                 errorMessage = e.message ?: "Unknown error occurred"
-                Log.e("ScheduleScreen", "=== EXCEPTION in LaunchedEffect ===", e)
+                Log.e("ScheduleScreen", "=== EXCEPTION in loadSchedules ===", e)
                 Log.e("ScheduleScreen", "Exception message: ${e.message}")
-            } finally {
-                isLoading = false
-                Log.d("ScheduleScreen", "=== Loading finished, isLoading set to false ===")
             }
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
+    // Fetch schedules from database
+    LaunchedEffect(user?.user_id) {
+        isLoading = true
+        loadSchedules()
+        isLoading = false
+    }
+
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = {
+            coroutineScope.launch {
+                isRefreshing = true
+                loadSchedules()
+                isRefreshing = false
+            }
+        },
+        modifier = Modifier.fillMaxSize()
     ) {
-        // Header
-        AppHeader(
-            title = "Schedule",
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+        ) {
+            // Header
+            AppHeader(
+                title = "Schedule",
             headerType = HeaderType.BACK,
             onBackClick = onNavigateBack
         )
@@ -415,6 +433,7 @@ fun ScheduleScreen(
             }
         }
 
+        }
     }
 }
 
