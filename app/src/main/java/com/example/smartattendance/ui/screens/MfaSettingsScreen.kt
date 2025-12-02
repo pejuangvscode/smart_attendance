@@ -6,7 +6,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.smartattendance.api.AuthApi
 import com.example.smartattendance.api.MfaApi
+import com.example.smartattendance.ui.components.AppHeader
+import com.example.smartattendance.ui.components.HeaderType
 import com.example.smartattendance.ui.theme.AppFontFamily
 import kotlinx.coroutines.launch
 
@@ -46,43 +47,32 @@ fun MfaSettingsScreen(
             errorMessage = it.message ?: "Failed to load MFA settings"
         }
     }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF6F6F6))
+    ) {
+        // Use AppHeader component
+        AppHeader(
+            title = "MFA Settings",
+            headerType = HeaderType.BACK,
+            onBackClick = onBackClick,
+            showIcon = false
+        )
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Two-Factor Authentication",
-                        fontFamily = AppFontFamily,
-                        fontSize = 18.sp
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    titleContentColor = Color.Black
-                )
-            )
-        }
-    ) { paddingValues ->
         if (isLoading) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues),
+                    .padding(16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = Color(0xFFE91E63))
+                CircularProgressIndicator(color = Color(0xFF2C2D32))
             }
         } else {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
                     .padding(24.dp)
                     .verticalScroll(rememberScrollState())
             ) {
@@ -261,14 +251,16 @@ fun MfaSettingsScreen(
                         onClick = onSetupMfa,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp),
-                        shape = RoundedCornerShape(24.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63))
+                            .height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2C2D32)),
+                        elevation = ButtonDefaults.buttonElevation(0.dp)
                     ) {
                         Text(
                             text = "Enable Two-Factor Authentication",
                             fontSize = 16.sp,
-                            fontFamily = AppFontFamily
+                            fontFamily = AppFontFamily,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
@@ -334,7 +326,7 @@ fun MfaSettingsScreen(
 }
 
 @Composable
-private fun BenefitItem(text: String) {
+fun BenefitItem(text: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
