@@ -56,6 +56,7 @@ import kotlinx.coroutines.launch
 fun LoginScreen(
     sessionManager: SessionManager,
     onLoginSuccess: (AuthApi.User) -> Unit = {},
+    onMfaRequired: (AuthApi.User) -> Unit = {},
     onSignUpClick: () -> Unit = {}
 ) {
     var username by remember { mutableStateOf("") }
@@ -80,7 +81,20 @@ fun LoginScreen(
                     val result = AuthApi.login(username, password, sessionManager)
                     isLoading = false
                     result.onSuccess { user ->
-                        onLoginSuccess(user)
+                        // Check if MFA is enabled for this user
+                        val mfaResult = com.example.smartattendance.api.MfaApi.getMfaSettings(user.user_id ?: "")
+                        mfaResult.onSuccess { settings ->
+                            if (settings?.mfa_enabled == true) {
+                                // MFA is enabled, navigate to MFA verification
+                                onMfaRequired(user)
+                            } else {
+                                // No MFA, proceed with login
+                                onLoginSuccess(user)
+                            }
+                        }.onFailure {
+                            // If failed to check MFA, proceed with normal login
+                            onLoginSuccess(user)
+                        }
                     }.onFailure {
                         loginError = it.message ?: "Login failed"
                     }

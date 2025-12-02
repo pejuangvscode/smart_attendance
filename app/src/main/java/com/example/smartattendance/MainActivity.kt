@@ -58,6 +58,9 @@ import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.example.smartattendance.ui.screens.SubmissionScreen
 import com.example.smartattendance.ui.screens.SubmitionComplete
+import com.example.smartattendance.ui.screens.MfaSettingsScreen
+import com.example.smartattendance.ui.screens.MfaSetupScreen
+import com.example.smartattendance.ui.screens.MfaVerifyScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -194,6 +197,10 @@ fun AppNavigation() {
                             popUpTo("login") { inclusive = true }
                         }
                     },
+                    onMfaRequired = { loggedInUser ->
+                        user = loggedInUser
+                        navController.navigate("mfa_verify")
+                    },
                     onSignUpClick = {
                         navController.navigate("sign_up")
                     }
@@ -210,6 +217,55 @@ fun AppNavigation() {
                         }
                     }
                 )
+            }
+
+            // MFA Verify Screen
+            composable("mfa_verify") {
+                user?.let { currentUser ->
+                    MfaVerifyScreen(
+                        user = currentUser,
+                        onVerificationSuccess = {
+                            navController.navigate("home") {
+                                popUpTo("login") { inclusive = true }
+                            }
+                        },
+                        onBackClick = {
+                            navController.navigate("login") {
+                                popUpTo("login") { inclusive = true }
+                            }
+                        }
+                    )
+                }
+            }
+
+            // MFA Setup Screen
+            composable("mfa_setup") {
+                user?.let { currentUser ->
+                    MfaSetupScreen(
+                        user = currentUser,
+                        onBackClick = {
+                            navController.popBackStack()
+                        },
+                        onSetupComplete = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
+            }
+
+            // MFA Settings Screen
+            composable("mfa_settings") {
+                user?.let { currentUser ->
+                    MfaSettingsScreen(
+                        user = currentUser,
+                        onBackClick = {
+                            navController.popBackStack()
+                        },
+                        onSetupMfa = {
+                            navController.navigate("mfa_setup")
+                        }
+                    )
+                }
             }
 
             composable("home") {

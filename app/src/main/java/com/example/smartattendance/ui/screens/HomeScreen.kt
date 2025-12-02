@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ExitToApp
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material3.*
@@ -251,18 +252,33 @@ fun HomeScreen(
                         )
                     }
 
-                    IconButton(onClick = {
-                        coroutineScope.launch {
-                            sessionManager.clearSession()
-                            onLogout()
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        IconButton(onClick = {
+                            navController.navigate("mfa_settings")
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.Security,
+                                contentDescription = "MFA Settings",
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp)
+                            )
                         }
-                    }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ExitToApp,
-                            contentDescription = "Logout",
-                            tint = Color.White,
-                            modifier = Modifier.size(40.dp)
-                        )
+
+                        IconButton(onClick = {
+                            coroutineScope.launch {
+                                sessionManager.clearSession()
+                                onLogout()
+                            }
+                        }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.ExitToApp,
+                                contentDescription = "Logout",
+                                tint = Color.White,
+                                modifier = Modifier.size(40.dp)
+                            )
+                        }
                     }
                 }
 

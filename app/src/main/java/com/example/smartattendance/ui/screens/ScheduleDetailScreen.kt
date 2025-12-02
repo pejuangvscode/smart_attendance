@@ -65,8 +65,8 @@ data class AttendanceHistory(
 )
 
 @Serializable
-data class EnrollmentCount(
-    val count: Int
+data class AttendanceCountInfo(
+    val enrollment_id: Int
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -157,16 +157,23 @@ fun ScheduleDetailScreen(
                     attendanceHistory = attendanceResponse.sortedByDescending { it.attendance_date }
                 }
 
-                // Get number of students enrolled in this course
-                val countResponse = supabase.postgrest["enrollments"]
+                // Get number of students who attended (present or late) for this schedule
+                // First, get today's date
+                val today = java.time.LocalDate.now()
+                val formatter = java.time.format.DateTimeFormatter.ISO_LOCAL_DATE
+                val todayString = today.format(formatter)
+
+                val attendanceCountResponse = supabase.postgrest["attendances"]
                     .select(columns = Columns.list("enrollment_id")) {
                         filter {
-                            eq("course_id", courseId)
+                            eq("schedule_id", scheduleId)
+                            eq("attendance_date", todayString)
+                            isIn("status", listOf("present", "late"))
                         }
                     }
-                    .decodeList<EnrollmentInfo>()
+                    .decodeList<AttendanceCountInfo>()
 
-                enrollmentCount = countResponse.size
+                enrollmentCount = attendanceCountResponse.size
 
             } catch (e: Exception) {
                 errorMessage = "Failed to load schedule details: ${e.message}"
