@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LockPerson
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -64,9 +66,11 @@ fun MfaVerifyScreen(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "🔐",
-                    fontSize = 40.sp
+                Icon(
+                    imageVector = Icons.Filled.LockPerson,
+                    contentDescription = "Two-Factor Authentication",
+                    tint = Color(0xFF2C2D32),
+                    modifier = Modifier.size(40.dp)
                 )
             }
 

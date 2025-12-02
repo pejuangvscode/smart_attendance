@@ -179,10 +179,10 @@ fun MfaSettingsScreen(
                             color = Color.Black
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        BenefitItem("🔒 Enhanced account security")
-                        BenefitItem("🛡️ Protection against unauthorized access")
-                        BenefitItem("📱 Works with Google Authenticator, Authy, etc.")
-                        BenefitItem("🔑 Backup codes for emergency access")
+                        BenefitItem("- Enhanced account security")
+                        BenefitItem("- Protection against unauthorized access")
+                        BenefitItem("- Works with Google Authenticator, Authy, etc.")
+                        BenefitItem("- Backup codes for emergency access")
                     }
                 }
 
